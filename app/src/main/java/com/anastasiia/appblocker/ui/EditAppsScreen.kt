@@ -29,7 +29,7 @@ fun EditAppsScreen(viewModel: MainViewModel, onDone: () -> Unit) {
     val context = LocalContext.current
     val apps = remember { launchableApps(context.packageManager) }
     val saved = viewModel.state.collectAsState().value.blockedPackages
-    var selected by remember { mutableStateOf(saved) }
+    var selected by remember(saved) { mutableStateOf(saved) }
     var query by remember { mutableStateOf("") }
 
     val visible = apps.filter { it.label.contains(query, ignoreCase = true) }
