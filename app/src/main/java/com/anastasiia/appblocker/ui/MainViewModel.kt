@@ -27,4 +27,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setBlockedPackages(value: Set<String>) =
         viewModelScope.launch { repository.setBlockedPackages(value) }
+
+    fun setInstagramMessagesOnly(value: Boolean) =
+        viewModelScope.launch { repository.setInstagramMessagesOnly(value) }
 }
