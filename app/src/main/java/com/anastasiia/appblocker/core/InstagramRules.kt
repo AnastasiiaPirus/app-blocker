@@ -30,32 +30,57 @@ private val DM_SURFACE_IDS = setOf(
 
 private const val REELS_VIEWER_ID = "clips_viewer_view_pager"
 
+// On-screen-only markers (compared against ids whose nodes are visible to the
+// user, not merely present). Instagram cold-starts into the feed WITHOUT
+// setting any tab's selected state — selection only appears after the first
+// tab tap — so visibility is the only signal that identifies the cold-start
+// surface.
+private val DM_VISIBLE_IDS = DM_SURFACE_IDS + "inbox_refreshable_thread_list_recyclerview"
+
+private val FEED_VISIBLE_IDS = setOf(
+    "main_feed_action_bar",
+    "reels_tray_container",
+    "row_feed_profile_header",
+    "row_feed_photo_imageview",
+    "end_of_feed_demarcator_container",
+)
+
 /**
  * Classifies an Instagram screen for "messages only" mode.
  *
  * @param viewIds view-id resource names present in the accessibility tree.
  * @param selectedTabs suffixes from [INSTAGRAM_TAB_IDS] whose node (or a close
  *   descendant) reports selected — normally zero or one entry.
+ * @param visibleIds subset of [viewIds] whose nodes are visible to the user.
  *
  * Rules, in order:
  * - Direct tab selected → the inbox (or a surface layered on it) → allow.
  * - Any other tab selected → feed/reels/explore/profile → redirect to inbox.
- * - Nav tabs present but none detectably selected → can't tell → fail open.
- * - No nav (fullscreen screens): DM surfaces allow, with a reels viewer over a
- *   DM thread (a tapped shared reel) dismissed via BACK; a reels viewer alone
- *   is the modal viewer (e.g. opened from a DM share on current builds) → BACK,
- *   which lands back where it was opened from.
+ * - No tab selected (cold start, transitions, navless screens) → decide by
+ *   what is actually on screen: DM surfaces allow (a reels viewer on top of
+ *   one — a tapped shared reel — is dismissed via BACK), a reels viewer goes
+ *   BACK, feed content redirects.
+ * - Presence-only fallbacks for callers/versions without visibility data.
+ * - Anything unrecognized fails open: a wrong block locks messages out, a
+ *   missed block is just a scrollable surface until its id is added.
  */
 fun classifyInstagramScreen(
     viewIds: Set<String>,
     selectedTabs: Set<String> = emptySet(),
+    visibleIds: Set<String> = emptySet(),
 ): InstagramAction {
     val suffixes = viewIds.mapTo(HashSet()) { it.substringAfterLast('/') }
+    val visible = visibleIds.mapTo(HashSet()) { it.substringAfterLast('/') }
+    val dmOnScreen = DM_VISIBLE_IDS.any { it in visible }
+    val reelsViewerOnScreen = REELS_VIEWER_ID in visible
     val onDmSurface = DM_SURFACE_IDS.any { it in suffixes }
     val reelsViewerOpen = REELS_VIEWER_ID in suffixes
     return when {
         "direct_tab" in selectedTabs -> InstagramAction.ALLOW
         selectedTabs.isNotEmpty() -> InstagramAction.REDIRECT_INBOX
+        dmOnScreen -> if (reelsViewerOnScreen) InstagramAction.BACK else InstagramAction.ALLOW
+        reelsViewerOnScreen -> InstagramAction.BACK
+        FEED_VISIBLE_IDS.any { it in visible } -> InstagramAction.REDIRECT_INBOX
         INSTAGRAM_TAB_IDS.any { it in suffixes } -> InstagramAction.ALLOW
         onDmSurface -> if (reelsViewerOpen) InstagramAction.BACK else InstagramAction.ALLOW
         reelsViewerOpen -> InstagramAction.BACK
