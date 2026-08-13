@@ -9,6 +9,7 @@ import com.anastasiia.appblocker.core.blockerDataStore
 import com.anastasiia.appblocker.core.shouldBlock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
@@ -19,9 +20,12 @@ class BlockerService : AccessibilityService() {
     @Volatile
     private var state = BlockerState()
 
+    private var collectJob: Job? = null
+
     override fun onServiceConnected() {
+        collectJob?.cancel()
         val repository = BlockerStateRepository(applicationContext.blockerDataStore)
-        scope.launch { repository.state.collect { state = it } }
+        collectJob = scope.launch { repository.state.collect { state = it } }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
