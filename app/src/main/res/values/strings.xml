@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">App Blocker</string>
+    <string name="accessibility_service_description">Watches which app is in the foreground and shows a block screen for apps you chose to block. Nothing is read from the screen and nothing leaves the device.</string>
+</resources>
