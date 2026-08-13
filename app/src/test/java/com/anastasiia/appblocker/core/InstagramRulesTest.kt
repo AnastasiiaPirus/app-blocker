@@ -59,6 +59,69 @@ class InstagramRulesTest {
             classifyInstagramScreen(pagerTree, selectedTabs = setOf("direct_tab", "feed_tab")),
         )
 
+    // --- Cold start: no tab reports selected; visibility decides ---
+    // Captured via uiautomator dump after force-stop + relaunch on the Pixel 9:
+    // all five tabs present with selected="false", feed content on screen.
+
+    @Test fun coldStartFeedNoSelectionButFeedVisibleRedirects() =
+        assertEquals(
+            InstagramAction.REDIRECT_INBOX,
+            classifyInstagramScreen(
+                pagerTree,
+                selectedTabs = emptySet(),
+                visibleIds = ids(
+                    "main_feed_action_bar", "reels_tray_container",
+                    "row_feed_profile_header", "row_feed_photo_profile_name",
+                ),
+            ),
+        )
+
+    @Test fun inboxVisibleWithoutSelectionIsAllowed() =
+        assertEquals(
+            InstagramAction.ALLOW,
+            classifyInstagramScreen(
+                pagerTree,
+                selectedTabs = emptySet(),
+                visibleIds = ids("inbox_refreshable_thread_list_recyclerview"),
+            ),
+        )
+
+    @Test fun transitionWithNothingRecognizableVisibleFailsOpen() =
+        assertEquals(
+            InstagramAction.ALLOW,
+            classifyInstagramScreen(pagerTree, selectedTabs = emptySet(), visibleIds = emptySet()),
+        )
+
+    @Test fun visibleReelsViewerGoesBackEvenWithTabsInTree() =
+        assertEquals(
+            InstagramAction.BACK,
+            classifyInstagramScreen(
+                pagerTree,
+                selectedTabs = emptySet(),
+                visibleIds = ids("clips_viewer_view_pager"),
+            ),
+        )
+
+    @Test fun visibleReelOverVisibleThreadGoesBack() =
+        assertEquals(
+            InstagramAction.BACK,
+            classifyInstagramScreen(
+                pagerTree,
+                selectedTabs = emptySet(),
+                visibleIds = ids("thread_message_list", "clips_viewer_view_pager"),
+            ),
+        )
+
+    @Test fun selectedDirectTabStillWinsOverVisibleFeedContent() =
+        assertEquals(
+            InstagramAction.ALLOW,
+            classifyInstagramScreen(
+                pagerTree,
+                selectedTabs = setOf("direct_tab"),
+                visibleIds = ids("main_feed_action_bar"),
+            ),
+        )
+
     // --- Screens without the bottom nav (threads, modals, legacy versions) ---
 
     @Test fun legacyDmInboxIsAllowed() =

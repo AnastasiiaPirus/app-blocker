@@ -154,11 +154,15 @@ class BlockerService : AccessibilityService() {
     private fun classifyCurrentScreen(): InstagramAction {
         val root = rootInActiveWindow ?: return InstagramAction.ALLOW
         if (root.packageName?.toString() != INSTAGRAM_PACKAGE) return InstagramAction.ALLOW
-        val ids = collectViewIds(root)
+        val (ids, visibleIds) = collectViewIds(root)
         val selected = selectedTabs(root)
-        val action = classifyInstagramScreen(ids, selected)
+        val action = classifyInstagramScreen(ids, selected, visibleIds)
         if (action != InstagramAction.ALLOW) {
-            Log.d(TAG, "instagram guard: $action selected=$selected")
+            Log.d(
+                TAG,
+                "instagram guard: $action selected=$selected " +
+                    "visible=${visibleIds.map { it.substringAfterLast('/') }}",
+            )
         }
         return action
     }
@@ -189,19 +193,24 @@ class BlockerService : AccessibilityService() {
         pendingGuardCheck = null
     }
 
-    private fun collectViewIds(root: AccessibilityNodeInfo): Set<String> {
+    /** Returns all view ids in the tree plus the subset whose nodes are visible to the user. */
+    private fun collectViewIds(root: AccessibilityNodeInfo): Pair<Set<String>, Set<String>> {
         val ids = HashSet<String>()
+        val visibleIds = HashSet<String>()
         val queue = ArrayDeque<AccessibilityNodeInfo>().apply { add(root) }
         var visited = 0
         while (queue.isNotEmpty() && visited < MAX_SCANNED_NODES) {
             val node = queue.removeFirst()
             visited++
-            node.viewIdResourceName?.let { ids.add(it) }
+            node.viewIdResourceName?.let {
+                ids.add(it)
+                if (node.isVisibleToUser) visibleIds.add(it)
+            }
             for (i in 0 until node.childCount) {
                 node.getChild(i)?.let { queue.add(it) }
             }
         }
-        return ids
+        return ids to visibleIds
     }
 
     private fun openInstagramInbox() {
