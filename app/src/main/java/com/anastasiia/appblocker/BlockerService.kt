@@ -1,6 +1,10 @@
 package com.anastasiia.appblocker
 
 import android.accessibilityservice.AccessibilityService
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.PixelFormat
@@ -38,10 +42,26 @@ class BlockerService : AccessibilityService() {
 
     private class OverlayViews(val root: View, val icon: ImageView, val label: TextView)
 
+    /** Dismisses the overlay when the screen turns off, so it can't linger over the keyguard. */
+    private val screenOffReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            removeOverlay()
+        }
+    }
+
+    private var screenOffReceiverRegistered = false
+
     override fun onServiceConnected() {
         collectJob?.cancel()
         val repository = BlockerStateRepository(applicationContext.blockerDataStore)
         collectJob = scope.launch { repository.state.collect { state = it } }
+
+        if (screenOffReceiverRegistered) {
+            unregisterReceiver(screenOffReceiver)
+            screenOffReceiverRegistered = false
+        }
+        registerReceiver(screenOffReceiver, IntentFilter(Intent.ACTION_SCREEN_OFF))
+        screenOffReceiverRegistered = true
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -161,6 +181,10 @@ class BlockerService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
+        if (screenOffReceiverRegistered) {
+            unregisterReceiver(screenOffReceiver)
+            screenOffReceiverRegistered = false
+        }
         removeOverlay()
         scope.cancel()
         super.onDestroy()
