@@ -7,7 +7,61 @@ class InstagramRulesTest {
     private fun ids(vararg suffixes: String) =
         suffixes.map { "com.instagram.android:id/$it" }.toSet()
 
-    @Test fun dmInboxIsAllowed() =
+    // Captured from a real device (Instagram ~2026): the swipeable pager keeps
+    // feed rows AND the clips viewer AND the inbox list in the tree at once,
+    // whichever tab is showing.
+    private val pagerTree = ids(
+        "feed_tab", "clips_tab", "search_tab", "direct_tab", "profile_tab",
+        "swipeable_tab_view_pager", "inbox_refreshable_thread_list_recyclerview",
+        "row_feed_photo_imageview", "row_feed_button_like",
+        "clips_viewer_view_pager", "clips_video_container", "like_button",
+    )
+
+    @Test fun inboxTabSelectedIsAllowedDespiteFeedInTree() =
+        assertEquals(
+            InstagramAction.ALLOW,
+            classifyInstagramScreen(pagerTree, selectedTabs = setOf("direct_tab")),
+        )
+
+    @Test fun feedTabSelectedRedirects() =
+        assertEquals(
+            InstagramAction.REDIRECT_INBOX,
+            classifyInstagramScreen(pagerTree, selectedTabs = setOf("feed_tab")),
+        )
+
+    @Test fun reelsTabSelectedRedirects() =
+        assertEquals(
+            InstagramAction.REDIRECT_INBOX,
+            classifyInstagramScreen(pagerTree, selectedTabs = setOf("clips_tab")),
+        )
+
+    @Test fun exploreTabSelectedRedirects() =
+        assertEquals(
+            InstagramAction.REDIRECT_INBOX,
+            classifyInstagramScreen(pagerTree, selectedTabs = setOf("search_tab")),
+        )
+
+    @Test fun profileTabSelectedRedirects() =
+        assertEquals(
+            InstagramAction.REDIRECT_INBOX,
+            classifyInstagramScreen(pagerTree, selectedTabs = setOf("profile_tab")),
+        )
+
+    @Test fun tabsPresentButNoneDetectablySelectedFailsOpen() =
+        assertEquals(
+            InstagramAction.ALLOW,
+            classifyInstagramScreen(pagerTree, selectedTabs = emptySet()),
+        )
+
+    @Test fun directTabWinsIfSelectionEverReportsTwoTabs() =
+        assertEquals(
+            InstagramAction.ALLOW,
+            classifyInstagramScreen(pagerTree, selectedTabs = setOf("direct_tab", "feed_tab")),
+        )
+
+    // --- Screens without the bottom nav (threads, modals, legacy versions) ---
+
+    @Test fun legacyDmInboxIsAllowed() =
         assertEquals(
             InstagramAction.ALLOW,
             classifyInstagramScreen(ids("direct_inbox_container", "direct_inbox_recycler_view")),
@@ -19,34 +73,16 @@ class InstagramRulesTest {
             classifyInstagramScreen(ids("thread_message_list", "row_thread_composer_edittext")),
         )
 
-    @Test fun sharedReelOpenedFromDmGoesBack() =
+    @Test fun sharedReelOverDmThreadGoesBack() =
         assertEquals(
             InstagramAction.BACK,
             classifyInstagramScreen(ids("thread_message_list", "clips_viewer_view_pager")),
         )
 
-    @Test fun reelsFeedRedirectsToInbox() =
+    @Test fun modalReelsViewerWithoutNavGoesBack() =
         assertEquals(
-            InstagramAction.REDIRECT_INBOX,
-            classifyInstagramScreen(ids("clips_viewer_view_pager", "clips_tab", "feed_tab")),
-        )
-
-    @Test fun homeFeedRedirectsToInbox() =
-        assertEquals(
-            InstagramAction.REDIRECT_INBOX,
-            classifyInstagramScreen(ids("feed_tab", "search_tab", "clips_tab", "profile_tab")),
-        )
-
-    @Test fun exploreRedirectsToInbox() =
-        assertEquals(
-            InstagramAction.REDIRECT_INBOX,
-            classifyInstagramScreen(ids("search_tab", "feed_tab")),
-        )
-
-    @Test fun reelsViewerWithoutAnyContextRedirects() =
-        assertEquals(
-            InstagramAction.REDIRECT_INBOX,
-            classifyInstagramScreen(ids("clips_viewer_view_pager")),
+            InstagramAction.BACK,
+            classifyInstagramScreen(ids("clips_viewer_view_pager", "clips_video_container")),
         )
 
     @Test fun unknownScreenIsAllowed() =
@@ -54,12 +90,6 @@ class InstagramRulesTest {
 
     @Test fun emptyTreeIsAllowed() =
         assertEquals(InstagramAction.ALLOW, classifyInstagramScreen(emptySet()))
-
-    @Test fun matchesBySuffixNotFullString() =
-        assertEquals(
-            InstagramAction.REDIRECT_INBOX,
-            classifyInstagramScreen(setOf("com.instagram.android:id/feed_tab")),
-        )
 
     @Test fun ignoresIdsFromOtherNamespacesWithSimilarNames() =
         assertEquals(
