@@ -1,6 +1,7 @@
 package com.anastasiia.appblocker
 
 import android.accessibilityservice.AccessibilityService
+import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -9,18 +10,28 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
+import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Button
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.anastasiia.appblocker.core.BlockerState
 import com.anastasiia.appblocker.core.BlockerStateRepository
+import com.anastasiia.appblocker.core.INSTAGRAM_INBOX_DEEP_LINK
+import com.anastasiia.appblocker.core.INSTAGRAM_PACKAGE
+import com.anastasiia.appblocker.core.INSTAGRAM_TAB_IDS
+import com.anastasiia.appblocker.core.InstagramAction
 import com.anastasiia.appblocker.core.blockerDataStore
+import com.anastasiia.appblocker.core.classifyInstagramScreen
 import com.anastasiia.appblocker.core.shouldBlock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +39,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+
+private const val TAG = "BlockerService"
+private const val GUARD_THROTTLE_MS = 600L
+private const val GUARD_CONFIRM_DELAY_MS = 350L
+private const val MAX_SCANNED_NODES = 250
 
 class BlockerService : AccessibilityService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -65,11 +81,138 @@ class BlockerService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val pkg = event.packageName?.toString()
-        if (shouldBlock(pkg, state, System.currentTimeMillis())) {
-            performGlobalAction(GLOBAL_ACTION_HOME)
-            showBlockOverlay(pkg)
+        when (event.eventType) {
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                if (shouldBlock(pkg, state, System.currentTimeMillis())) {
+                    performGlobalAction(GLOBAL_ACTION_HOME)
+                    showBlockOverlay(pkg)
+                } else {
+                    guardInstagram(pkg)
+                }
+            }
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> guardInstagram(pkg)
+        }
+    }
+
+    /** Timestamp of the last back/redirect the guard performed, for throttling. */
+    private var lastGuardActionAt = 0L
+
+    private val guardHandler = Handler(Looper.getMainLooper())
+
+    /** Pending confirmation re-scan, or null. At most one is scheduled at a time. */
+    private var pendingGuardCheck: Runnable? = null
+
+    /**
+     * "Messages only" mode for Instagram: classify the current screen from its
+     * view-id tree and bounce anything that isn't a DM surface.
+     *
+     * A blocked classification is never acted on immediately: during screen
+     * transitions the tree is a mix of the outgoing and incoming surfaces (e.g.
+     * opening a DM thread still shows the inbox's nav tabs before the thread
+     * renders), which misreads as a blocked surface. Instead a re-scan is
+     * scheduled and the action fires only if the settled screen still
+     * classifies as blocked. Actions are also throttled so event bursts can't
+     * queue repeated back presses or redirects mid-animation.
+     */
+    private fun guardInstagram(pkg: String?) {
+        if (pkg != INSTAGRAM_PACKAGE) {
+            cancelPendingGuardCheck()
+            return
+        }
+        if (!guardApplies()) return
+        if (pendingGuardCheck != null) return
+        if (System.currentTimeMillis() - lastGuardActionAt < GUARD_THROTTLE_MS) return
+
+        if (classifyCurrentScreen() == InstagramAction.ALLOW) return
+
+        val check = Runnable {
+            pendingGuardCheck = null
+            if (!guardApplies()) return@Runnable
+            val confirmed = classifyCurrentScreen()
+            if (confirmed == InstagramAction.ALLOW) return@Runnable
+            lastGuardActionAt = System.currentTimeMillis()
+            when (confirmed) {
+                InstagramAction.BACK -> performGlobalAction(GLOBAL_ACTION_BACK)
+                InstagramAction.REDIRECT_INBOX -> openInstagramInbox()
+                InstagramAction.ALLOW -> Unit
+            }
+        }
+        pendingGuardCheck = check
+        guardHandler.postDelayed(check, GUARD_CONFIRM_DELAY_MS)
+    }
+
+    private fun guardApplies(): Boolean {
+        val s = state
+        return s.enabled &&
+            s.instagramMessagesOnly &&
+            !s.isPaused(System.currentTimeMillis()) &&
+            INSTAGRAM_PACKAGE !in s.blockedPackages // full block already handles it
+
+    }
+
+    private fun classifyCurrentScreen(): InstagramAction {
+        val root = rootInActiveWindow ?: return InstagramAction.ALLOW
+        if (root.packageName?.toString() != INSTAGRAM_PACKAGE) return InstagramAction.ALLOW
+        val ids = collectViewIds(root)
+        val selected = selectedTabs(root)
+        val action = classifyInstagramScreen(ids, selected)
+        if (action != InstagramAction.ALLOW) {
+            Log.d(TAG, "instagram guard: $action selected=$selected")
+        }
+        return action
+    }
+
+    /**
+     * Which bottom-nav tabs report selected. Selection often sits on a child
+     * of the tab node (its icon) rather than the tab itself, so a few levels
+     * of descendants are checked too.
+     */
+    private fun selectedTabs(root: AccessibilityNodeInfo): Set<String> =
+        INSTAGRAM_TAB_IDS.filterTo(HashSet()) { tab ->
+            root.findAccessibilityNodeInfosByViewId("$INSTAGRAM_PACKAGE:id/$tab")
+                .any { isSelectedDeep(it, depth = 3) }
+        }
+
+    private fun isSelectedDeep(node: AccessibilityNodeInfo, depth: Int): Boolean {
+        if (node.isSelected) return true
+        if (depth == 0) return false
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            if (isSelectedDeep(child, depth - 1)) return true
+        }
+        return false
+    }
+
+    private fun cancelPendingGuardCheck() {
+        pendingGuardCheck?.let { guardHandler.removeCallbacks(it) }
+        pendingGuardCheck = null
+    }
+
+    private fun collectViewIds(root: AccessibilityNodeInfo): Set<String> {
+        val ids = HashSet<String>()
+        val queue = ArrayDeque<AccessibilityNodeInfo>().apply { add(root) }
+        var visited = 0
+        while (queue.isNotEmpty() && visited < MAX_SCANNED_NODES) {
+            val node = queue.removeFirst()
+            visited++
+            node.viewIdResourceName?.let { ids.add(it) }
+            for (i in 0 until node.childCount) {
+                node.getChild(i)?.let { queue.add(it) }
+            }
+        }
+        return ids
+    }
+
+    private fun openInstagramInbox() {
+        try {
+            startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse(INSTAGRAM_INBOX_DEEP_LINK))
+                    .setPackage(INSTAGRAM_PACKAGE)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            )
+        } catch (e: ActivityNotFoundException) {
+            performGlobalAction(GLOBAL_ACTION_BACK)
         }
     }
 
@@ -181,6 +324,7 @@ class BlockerService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
+        cancelPendingGuardCheck()
         if (screenOffReceiverRegistered) {
             unregisterReceiver(screenOffReceiver)
             screenOffReceiverRegistered = false

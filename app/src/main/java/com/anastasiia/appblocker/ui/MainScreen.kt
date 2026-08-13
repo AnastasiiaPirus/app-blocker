@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.anastasiia.appblocker.core.INSTAGRAM_PACKAGE
 import com.anastasiia.appblocker.core.formatRemaining
 import kotlinx.coroutines.delay
 
@@ -96,6 +97,36 @@ fun MainScreen(viewModel: MainViewModel, onEditApps: () -> Unit) {
                 ) {
                     Text("Paused — resumes in ${formatRemaining(state.pausedUntil - now)}")
                     TextButton(onClick = { viewModel.resumeNow() }) { Text("Resume now") }
+                }
+            }
+
+            val instagramInstalled = remember {
+                runCatching { context.packageManager.getApplicationInfo(INSTAGRAM_PACKAGE, 0) }.isSuccess
+            }
+            if (instagramInstalled) {
+                val instagramFullyBlocked = INSTAGRAM_PACKAGE in state.blockedPackages
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Instagram — messages only", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            if (instagramFullyBlocked) {
+                                "Instagram is in the blocked list; full block wins."
+                            } else {
+                                "DMs stay open; feed, reels and explore bounce back."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = state.instagramMessagesOnly,
+                        enabled = !instagramFullyBlocked,
+                        onCheckedChange = { viewModel.setInstagramMessagesOnly(it) },
+                    )
                 }
             }
 
