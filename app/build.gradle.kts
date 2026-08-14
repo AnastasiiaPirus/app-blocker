@@ -38,4 +38,5 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.datastore.preferences.core)
+    testImplementation(libs.json)
 }
