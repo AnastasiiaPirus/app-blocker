@@ -5,6 +5,7 @@ data class BlockerState(
     val blockedPackages: Set<String> = emptySet(),
     val pausedUntil: Long = 0L,
     val instagramMessagesOnly: Boolean = false,
+    val youtubeNoShorts: Boolean = false,
 ) {
     fun isPaused(now: Long): Boolean = now < pausedUntil
 }

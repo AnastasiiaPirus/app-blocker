@@ -30,4 +30,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setInstagramMessagesOnly(value: Boolean) =
         viewModelScope.launch { repository.setInstagramMessagesOnly(value) }
+
+    fun setYoutubeNoShorts(value: Boolean) =
+        viewModelScope.launch { repository.setYoutubeNoShorts(value) }
 }
