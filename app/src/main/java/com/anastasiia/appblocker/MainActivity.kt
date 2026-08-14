@@ -13,12 +13,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.anastasiia.appblocker.core.GateAction
+import com.anastasiia.appblocker.ui.ConfirmScreen
 import com.anastasiia.appblocker.ui.EditAppsScreen
 import com.anastasiia.appblocker.ui.GateScreen
 import com.anastasiia.appblocker.ui.MainScreen
 import com.anastasiia.appblocker.ui.MainViewModel
 
-private enum class Screen { Main, EditApps, Gate }
+private enum class Screen { Main, EditApps, Gate, Confirm }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,7 +32,15 @@ class MainActivity : ComponentActivity() {
                 var screen by remember { mutableStateOf(Screen.Main) }
                 var gateAction by remember { mutableStateOf<GateAction?>(null) }
                 when (screen) {
-                    Screen.Main -> MainScreen(viewModel, onEditApps = { screen = Screen.EditApps })
+                    Screen.Main -> MainScreen(
+                        viewModel,
+                        onEditApps = { screen = Screen.EditApps },
+                        onGate = { action ->
+                            gateAction = action
+                            screen = Screen.Gate
+                        },
+                        onConfirm = { screen = Screen.Confirm },
+                    )
                     Screen.EditApps -> EditAppsScreen(viewModel, onDone = { screen = Screen.Main })
                     Screen.Gate -> GateScreen(
                         viewModel,
@@ -39,6 +48,7 @@ class MainActivity : ComponentActivity() {
                         onDone = { screen = Screen.Main },
                         onBack = { screen = Screen.Main },
                     )
+                    Screen.Confirm -> ConfirmScreen(viewModel, onDone = { screen = Screen.Main })
                 }
             }
         }

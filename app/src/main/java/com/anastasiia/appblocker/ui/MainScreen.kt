@@ -34,17 +34,28 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.anastasiia.appblocker.core.CONFIRM_WINDOW_MS
+import com.anastasiia.appblocker.core.GateAction
+import com.anastasiia.appblocker.core.GatePhase
 import com.anastasiia.appblocker.core.INSTAGRAM_PACKAGE
 import com.anastasiia.appblocker.core.YOUTUBE_PACKAGE
+import com.anastasiia.appblocker.core.formatClock
 import com.anastasiia.appblocker.core.formatRemaining
+import com.anastasiia.appblocker.core.gatePhase
 import kotlinx.coroutines.delay
 
 private val PAUSE_MINUTES = listOf(1, 5, 15, 60)
 
 @Composable
-fun MainScreen(viewModel: MainViewModel, onEditApps: () -> Unit) {
+fun MainScreen(
+    viewModel: MainViewModel,
+    onEditApps: () -> Unit,
+    onGate: (GateAction) -> Unit = {},
+    onConfirm: () -> Unit = {},
+) {
     val context = LocalContext.current
     val state by viewModel.state.collectAsState()
+    val gateState by viewModel.gateState.collectAsState()
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var serviceEnabled by remember { mutableStateOf(isBlockerServiceEnabled(context)) }
     var advancedExpanded by remember { mutableStateOf(false) }
@@ -53,6 +64,7 @@ fun MainScreen(viewModel: MainViewModel, onEditApps: () -> Unit) {
         while (true) {
             now = System.currentTimeMillis()
             serviceEnabled = isBlockerServiceEnabled(context)
+            viewModel.lapseIfExpired()
             delay(1_000L)
         }
     }
@@ -88,6 +100,33 @@ fun MainScreen(viewModel: MainViewModel, onEditApps: () -> Unit) {
             ) {
                 Text("Blocking", style = MaterialTheme.typography.headlineSmall)
                 Switch(checked = state.enabled, onCheckedChange = { viewModel.setEnabled(it) })
+            }
+
+            gateState.pending?.let { pending ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    when (gatePhase(pending, now)) {
+                        GatePhase.WAITING -> {
+                            Text("Noted. Ready at ${formatClock(pending.readyAt)}.")
+                            TextButton(onClick = { viewModel.cancelPending() }) { Text("Cancel") }
+                        }
+                        GatePhase.READY -> {
+                            Text("Ready — confirm before ${formatClock(pending.readyAt + CONFIRM_WINDOW_MS)}")
+                            TextButton(onClick = onConfirm) { Text("Confirm") }
+                        }
+                        GatePhase.EXPIRED -> {} // cleared by the next lapse tick
+                    }
+                }
+            }
+            if (gateState.urgesOutlasted > 0) {
+                Text(
+                    "Urges outlasted: ${gateState.urgesOutlasted}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             if (state.isPaused(now)) {
