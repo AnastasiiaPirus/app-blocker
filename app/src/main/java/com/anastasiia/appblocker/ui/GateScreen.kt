@@ -2,7 +2,6 @@ package com.anastasiia.appblocker.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
@@ -58,7 +58,7 @@ private const val MAX_INSERTION_CHARS = 20
 fun GateScreen(viewModel: MainViewModel, action: GateAction, onDone: () -> Unit, onBack: () -> Unit) {
     val gateState by viewModel.gateState.collectAsState()
     val question = GATE_QUESTIONS[gateState.questionCursor]
-    var answer by remember { mutableStateOf("") }
+    var answer by rememberSaveable { mutableStateOf("") }
     var showPast by remember { mutableStateOf(false) }
     val past by produceState(initialValue = emptyList<JournalEntry>(), question) {
         value = viewModel.pastAnswers(question)

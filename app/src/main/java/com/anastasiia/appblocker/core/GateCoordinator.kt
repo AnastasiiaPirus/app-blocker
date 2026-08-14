@@ -9,6 +9,7 @@ class GateCoordinator(
     private val journal: Journal,
 ) {
     suspend fun submit(action: GateAction, answer: String, now: Long) {
+        lapseIfExpired(now)
         val state = repository.gateState.first()
         state.pending?.let { journal.append(entryFor(it, now, GateOutcome.REPLACED)) }
         repository.setPending(

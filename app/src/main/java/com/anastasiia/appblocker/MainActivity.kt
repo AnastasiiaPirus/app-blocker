@@ -47,12 +47,19 @@ class MainActivity : ComponentActivity() {
                         onDone = { screen = Screen.Main },
                         onGate = onGate,
                     )
-                    Screen.Gate -> GateScreen(
-                        viewModel,
-                        action = gateAction ?: GateAction.Disable,
-                        onDone = { screen = Screen.Main },
-                        onBack = { screen = Screen.Main },
-                    )
+                    Screen.Gate -> {
+                        val action = gateAction
+                        if (action == null) {
+                            screen = Screen.Main
+                        } else {
+                            GateScreen(
+                                viewModel,
+                                action = action,
+                                onDone = { screen = Screen.Main },
+                                onBack = { screen = Screen.Main },
+                            )
+                        }
+                    }
                     Screen.Confirm -> ConfirmScreen(viewModel, onDone = { screen = Screen.Main })
                 }
             }

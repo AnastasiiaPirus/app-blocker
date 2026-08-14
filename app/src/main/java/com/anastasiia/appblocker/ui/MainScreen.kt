@@ -2,6 +2,7 @@ package com.anastasiia.appblocker.ui
 
 import android.content.Intent
 import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -115,8 +116,16 @@ fun MainScreen(
                 ) {
                     when (gatePhase(pending, now)) {
                         GatePhase.WAITING -> {
-                            Text("Noted. Ready at ${formatClock(pending.readyAt)}.")
-                            TextButton(onClick = { viewModel.cancelPending() }) { Text("Cancel") }
+                            val pendingText = if (pending.action is GateAction.Pause) {
+                                "Pause ready at ${formatClock(pending.readyAt)}."
+                            } else {
+                                "Noted. Ready at ${formatClock(pending.readyAt)}."
+                            }
+                            Text(pendingText)
+                            TextButton(onClick = {
+                                viewModel.cancelPending()
+                                Toast.makeText(context, "Nice. That one passed.", Toast.LENGTH_SHORT).show()
+                            }) { Text("Cancel") }
                         }
                         GatePhase.READY -> {
                             Text("Ready — confirm before ${formatClock(pending.readyAt + CONFIRM_WINDOW_MS)}")

@@ -134,6 +134,17 @@ class GateCoordinatorTest {
     }
 
     @Test
+    fun submitAfterExpiryLapsesRatherThanReplacing() = runGateTest { repo, journal, gate ->
+        gate.submit(GateAction.Pause(15), answer, now = 0L)
+        val expired = 5 * 60_000L + CONFIRM_WINDOW_MS
+        gate.submit(GateAction.Disable, answer, now = expired)
+        val state = repo.gateState.first()
+        assertEquals(GateAction.Disable, state.pending?.action)
+        assertEquals(1, state.urgesOutlasted)
+        assertEquals(listOf(GateOutcome.LAPSED), journal.readAll().map { it.outcome })
+    }
+
+    @Test
     fun cursorWrapsAfterTenSubmissions() = runGateTest { repo, _, gate ->
         var now = 0L
         repeat(10) {
