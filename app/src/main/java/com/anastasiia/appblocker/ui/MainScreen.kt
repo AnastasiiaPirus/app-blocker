@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.anastasiia.appblocker.core.INSTAGRAM_PACKAGE
+import com.anastasiia.appblocker.core.YOUTUBE_PACKAGE
 import com.anastasiia.appblocker.core.formatRemaining
 import kotlinx.coroutines.delay
 
@@ -126,6 +127,36 @@ fun MainScreen(viewModel: MainViewModel, onEditApps: () -> Unit) {
                         checked = state.instagramMessagesOnly,
                         enabled = !instagramFullyBlocked,
                         onCheckedChange = { viewModel.setInstagramMessagesOnly(it) },
+                    )
+                }
+            }
+
+            val youtubeInstalled = remember {
+                runCatching { context.packageManager.getApplicationInfo(YOUTUBE_PACKAGE, 0) }.isSuccess
+            }
+            if (youtubeInstalled) {
+                val youtubeFullyBlocked = YOUTUBE_PACKAGE in state.blockedPackages
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("YouTube — no Shorts", style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            if (youtubeFullyBlocked) {
+                                "YouTube is in the blocked list; full block wins."
+                            } else {
+                                "Videos, search and subs stay open; Shorts bounce back."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Switch(
+                        checked = state.youtubeNoShorts,
+                        enabled = !youtubeFullyBlocked,
+                        onCheckedChange = { viewModel.setYoutubeNoShorts(it) },
                     )
                 }
             }

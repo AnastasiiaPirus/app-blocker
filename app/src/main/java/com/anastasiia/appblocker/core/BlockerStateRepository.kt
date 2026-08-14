@@ -15,6 +15,7 @@ class BlockerStateRepository(private val dataStore: DataStore<Preferences>) {
         val BLOCKED_PACKAGES = stringSetPreferencesKey("blocked_packages")
         val PAUSED_UNTIL = longPreferencesKey("paused_until")
         val INSTAGRAM_MESSAGES_ONLY = booleanPreferencesKey("instagram_messages_only")
+        val YOUTUBE_NO_SHORTS = booleanPreferencesKey("youtube_no_shorts")
     }
 
     val state: Flow<BlockerState> = dataStore.data.map { prefs ->
@@ -23,6 +24,7 @@ class BlockerStateRepository(private val dataStore: DataStore<Preferences>) {
             blockedPackages = prefs[Keys.BLOCKED_PACKAGES] ?: emptySet(),
             pausedUntil = prefs[Keys.PAUSED_UNTIL] ?: 0L,
             instagramMessagesOnly = prefs[Keys.INSTAGRAM_MESSAGES_ONLY] ?: false,
+            youtubeNoShorts = prefs[Keys.YOUTUBE_NO_SHORTS] ?: false,
         )
     }
 
@@ -31,4 +33,7 @@ class BlockerStateRepository(private val dataStore: DataStore<Preferences>) {
     suspend fun setPausedUntil(value: Long) = dataStore.edit { it[Keys.PAUSED_UNTIL] = value }
     suspend fun setInstagramMessagesOnly(value: Boolean) =
         dataStore.edit { it[Keys.INSTAGRAM_MESSAGES_ONLY] = value }
+
+    suspend fun setYoutubeNoShorts(value: Boolean) =
+        dataStore.edit { it[Keys.YOUTUBE_NO_SHORTS] = value }
 }

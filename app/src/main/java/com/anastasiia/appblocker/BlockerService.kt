@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
@@ -30,8 +31,11 @@ import com.anastasiia.appblocker.core.INSTAGRAM_INBOX_DEEP_LINK
 import com.anastasiia.appblocker.core.INSTAGRAM_PACKAGE
 import com.anastasiia.appblocker.core.INSTAGRAM_TAB_IDS
 import com.anastasiia.appblocker.core.InstagramAction
+import com.anastasiia.appblocker.core.YOUTUBE_PACKAGE
+import com.anastasiia.appblocker.core.YouTubeAction
 import com.anastasiia.appblocker.core.blockerDataStore
 import com.anastasiia.appblocker.core.classifyInstagramScreen
+import com.anastasiia.appblocker.core.classifyYouTubeScreen
 import com.anastasiia.appblocker.core.shouldBlock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,6 +47,7 @@ import kotlinx.coroutines.launch
 private const val TAG = "BlockerService"
 private const val GUARD_THROTTLE_MS = 600L
 private const val GUARD_CONFIRM_DELAY_MS = 350L
+private const val FEEDBACK_PILL_MS = 1600L
 private const val MAX_SCANNED_NODES = 250
 
 class BlockerService : AccessibilityService() {
@@ -62,6 +67,7 @@ class BlockerService : AccessibilityService() {
     private val screenOffReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             removeOverlay()
+            removeFeedbackPill()
         }
     }
 
@@ -88,10 +94,10 @@ class BlockerService : AccessibilityService() {
                     performGlobalAction(GLOBAL_ACTION_HOME)
                     showBlockOverlay(pkg)
                 } else {
-                    guardInstagram(pkg)
+                    guardSpecialFeature(pkg)
                 }
             }
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> guardInstagram(pkg)
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> guardSpecialFeature(pkg)
         }
     }
 
@@ -103,9 +109,13 @@ class BlockerService : AccessibilityService() {
     /** Pending confirmation re-scan, or null. At most one is scheduled at a time. */
     private var pendingGuardCheck: Runnable? = null
 
+    /** Unified verdict for the per-app special-feature classifiers. */
+    private enum class GuardVerdict { ALLOW, BACK, REDIRECT_INBOX }
+
     /**
-     * "Messages only" mode for Instagram: classify the current screen from its
-     * view-id tree and bounce anything that isn't a DM surface.
+     * Special-feature guards: Instagram "messages only" and YouTube "no
+     * Shorts". Classifies the current screen from its view-id tree and bounces
+     * blocked surfaces.
      *
      * A blocked classification is never acted on immediately: during screen
      * transitions the tree is a mix of the outgoing and incoming surfaces (e.g.
@@ -115,56 +125,73 @@ class BlockerService : AccessibilityService() {
      * classifies as blocked. Actions are also throttled so event bursts can't
      * queue repeated back presses or redirects mid-animation.
      */
-    private fun guardInstagram(pkg: String?) {
-        if (pkg != INSTAGRAM_PACKAGE) {
-            cancelPendingGuardCheck()
+    private fun guardSpecialFeature(pkg: String?) {
+        if (pkg == null || !guardApplies(pkg)) {
+            if (pkg != INSTAGRAM_PACKAGE && pkg != YOUTUBE_PACKAGE) cancelPendingGuardCheck()
             return
         }
-        if (!guardApplies()) return
         if (pendingGuardCheck != null) return
         if (System.currentTimeMillis() - lastGuardActionAt < GUARD_THROTTLE_MS) return
 
-        if (classifyCurrentScreen() == InstagramAction.ALLOW) return
+        if (classifyCurrentScreen(pkg) == GuardVerdict.ALLOW) return
 
         val check = Runnable {
             pendingGuardCheck = null
-            if (!guardApplies()) return@Runnable
-            val confirmed = classifyCurrentScreen()
-            if (confirmed == InstagramAction.ALLOW) return@Runnable
+            if (!guardApplies(pkg)) return@Runnable
+            val confirmed = classifyCurrentScreen(pkg)
+            if (confirmed == GuardVerdict.ALLOW) return@Runnable
             lastGuardActionAt = System.currentTimeMillis()
             when (confirmed) {
-                InstagramAction.BACK -> performGlobalAction(GLOBAL_ACTION_BACK)
-                InstagramAction.REDIRECT_INBOX -> openInstagramInbox()
-                InstagramAction.ALLOW -> Unit
+                GuardVerdict.BACK -> performGlobalAction(GLOBAL_ACTION_BACK)
+                GuardVerdict.REDIRECT_INBOX -> openInstagramInbox()
+                GuardVerdict.ALLOW -> Unit
             }
+            showGuardFeedback(
+                if (pkg == YOUTUBE_PACKAGE) "Shorts blocked" else "Instagram: messages only",
+            )
         }
         pendingGuardCheck = check
         guardHandler.postDelayed(check, GUARD_CONFIRM_DELAY_MS)
     }
 
-    private fun guardApplies(): Boolean {
+    /** Whether the special-feature guard is on for [pkg] right now. */
+    private fun guardApplies(pkg: String): Boolean {
         val s = state
-        return s.enabled &&
-            s.instagramMessagesOnly &&
-            !s.isPaused(System.currentTimeMillis()) &&
-            INSTAGRAM_PACKAGE !in s.blockedPackages // full block already handles it
-
+        if (!s.enabled || s.isPaused(System.currentTimeMillis())) return false
+        if (pkg in s.blockedPackages) return false // full block already handles it
+        return when (pkg) {
+            INSTAGRAM_PACKAGE -> s.instagramMessagesOnly
+            YOUTUBE_PACKAGE -> s.youtubeNoShorts
+            else -> false
+        }
     }
 
-    private fun classifyCurrentScreen(): InstagramAction {
-        val root = rootInActiveWindow ?: return InstagramAction.ALLOW
-        if (root.packageName?.toString() != INSTAGRAM_PACKAGE) return InstagramAction.ALLOW
+    private fun classifyCurrentScreen(pkg: String): GuardVerdict {
+        val root = rootInActiveWindow ?: return GuardVerdict.ALLOW
+        if (root.packageName?.toString() != pkg) return GuardVerdict.ALLOW
         val (ids, visibleIds) = collectViewIds(root)
-        val selected = selectedTabs(root)
-        val action = classifyInstagramScreen(ids, selected, visibleIds)
-        if (action != InstagramAction.ALLOW) {
+        val verdict = when (pkg) {
+            INSTAGRAM_PACKAGE ->
+                when (classifyInstagramScreen(ids, selectedTabs(root), visibleIds)) {
+                    InstagramAction.ALLOW -> GuardVerdict.ALLOW
+                    InstagramAction.BACK -> GuardVerdict.BACK
+                    InstagramAction.REDIRECT_INBOX -> GuardVerdict.REDIRECT_INBOX
+                }
+            YOUTUBE_PACKAGE ->
+                when (classifyYouTubeScreen(ids, visibleIds)) {
+                    YouTubeAction.ALLOW -> GuardVerdict.ALLOW
+                    YouTubeAction.BACK -> GuardVerdict.BACK
+                }
+            else -> GuardVerdict.ALLOW
+        }
+        if (verdict != GuardVerdict.ALLOW) {
             Log.d(
                 TAG,
-                "instagram guard: $action selected=$selected " +
+                "$pkg guard: $verdict " +
                     "visible=${visibleIds.map { it.substringAfterLast('/') }}",
             )
         }
-        return action
+        return verdict
     }
 
     /**
@@ -211,6 +238,51 @@ class BlockerService : AccessibilityService() {
             }
         }
         return ids to visibleIds
+    }
+
+    /** The transient guard-feedback pill currently on screen, or null. */
+    private var feedbackPill: View? = null
+
+    /**
+     * Shows a small self-dismissing pill so a guard action reads as the
+     * blocker acting, not the app glitching. Non-touchable, so it never
+     * intercepts input; replaced in place if one is already showing.
+     */
+    private fun showGuardFeedback(text: String) {
+        removeFeedbackPill()
+        val density = resources.displayMetrics.density
+        fun dp(value: Int) = (value * density).toInt()
+
+        val pill = TextView(this).apply {
+            this.text = text
+            textSize = 14f
+            setTextColor(Color.WHITE)
+            setPadding(dp(20), dp(10), dp(20), dp(10))
+            background = GradientDrawable().apply {
+                setColor(0xE6222222.toInt())
+                cornerRadius = dp(24).toFloat()
+            }
+        }
+        val params = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+            PixelFormat.TRANSLUCENT,
+        ).apply {
+            gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
+            y = dp(120)
+        }
+        windowManager().addView(pill, params)
+        feedbackPill = pill
+        guardHandler.postDelayed({ if (feedbackPill === pill) removeFeedbackPill() }, FEEDBACK_PILL_MS)
+    }
+
+    private fun removeFeedbackPill() {
+        val existing = feedbackPill ?: return
+        windowManager().removeView(existing)
+        feedbackPill = null
     }
 
     private fun openInstagramInbox() {
@@ -339,6 +411,7 @@ class BlockerService : AccessibilityService() {
             screenOffReceiverRegistered = false
         }
         removeOverlay()
+        removeFeedbackPill()
         scope.cancel()
         super.onDestroy()
     }

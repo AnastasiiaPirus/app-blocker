@@ -32,6 +32,7 @@ class BlockerStateRepositoryTest {
         repo.setBlockedPackages(setOf("com.instagram.android", "com.zhiliaoapp.musically"))
         repo.setPausedUntil(123_456L)
         repo.setInstagramMessagesOnly(true)
+        repo.setYoutubeNoShorts(true)
 
         assertEquals(
             BlockerState(
@@ -39,6 +40,7 @@ class BlockerStateRepositoryTest {
                 blockedPackages = setOf("com.instagram.android", "com.zhiliaoapp.musically"),
                 pausedUntil = 123_456L,
                 instagramMessagesOnly = true,
+                youtubeNoShorts = true,
             ),
             repo.state.first(),
         )
@@ -55,6 +57,7 @@ class BlockerStateRepositoryTest {
                 blockedPackages = setOf("com.instagram.android", "com.zhiliaoapp.musically"),
                 pausedUntil = 123_456L,
                 instagramMessagesOnly = true,
+                youtubeNoShorts = true,
             ),
             repo2.state.first(),
         )
