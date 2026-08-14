@@ -12,11 +12,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.anastasiia.appblocker.core.GateAction
 import com.anastasiia.appblocker.ui.EditAppsScreen
+import com.anastasiia.appblocker.ui.GateScreen
 import com.anastasiia.appblocker.ui.MainScreen
 import com.anastasiia.appblocker.ui.MainViewModel
 
-private enum class Screen { Main, EditApps }
+private enum class Screen { Main, EditApps, Gate }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,9 +29,16 @@ class MainActivity : ComponentActivity() {
             ) {
                 val viewModel: MainViewModel = viewModel()
                 var screen by remember { mutableStateOf(Screen.Main) }
+                var gateAction by remember { mutableStateOf<GateAction?>(null) }
                 when (screen) {
                     Screen.Main -> MainScreen(viewModel, onEditApps = { screen = Screen.EditApps })
                     Screen.EditApps -> EditAppsScreen(viewModel, onDone = { screen = Screen.Main })
+                    Screen.Gate -> GateScreen(
+                        viewModel,
+                        action = gateAction ?: GateAction.Disable,
+                        onDone = { screen = Screen.Main },
+                        onBack = { screen = Screen.Main },
+                    )
                 }
             }
         }
