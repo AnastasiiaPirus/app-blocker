@@ -9,3 +9,9 @@ data class BlockerState(
 ) {
     fun isPaused(now: Long): Boolean = now < pausedUntil
 }
+
+data class GateState(
+    val pending: PendingRequest? = null,
+    val questionCursor: Int = 0,
+    val urgesOutlasted: Int = 0,
+)
