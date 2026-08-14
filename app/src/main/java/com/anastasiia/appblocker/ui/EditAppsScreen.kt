@@ -23,12 +23,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.anastasiia.appblocker.core.GateAction
 
 @Composable
-fun EditAppsScreen(viewModel: MainViewModel, onDone: () -> Unit) {
+fun EditAppsScreen(viewModel: MainViewModel, onDone: () -> Unit, onGate: (GateAction) -> Unit = {}) {
     val context = LocalContext.current
     val apps = remember { launchableApps(context.packageManager) }
-    val saved = viewModel.state.collectAsState().value.blockedPackages
+    val state = viewModel.state.collectAsState().value
+    val saved = state.blockedPackages
     var selected by remember(saved) { mutableStateOf(saved) }
     var query by remember { mutableStateOf("") }
 
@@ -63,10 +65,19 @@ fun EditAppsScreen(viewModel: MainViewModel, onDone: () -> Unit) {
             }
             Button(
                 onClick = {
-                    // Prune anything no longer installed while we're here.
                     val installed = apps.map { it.packageName }.toSet()
-                    viewModel.setBlockedPackages(selected intersect installed)
-                    onDone()
+                    val current = saved intersect installed // stale uninstalled entries drop silently
+                    val chosen = selected intersect installed
+                    val removals = current - chosen
+                    val additions = chosen - current
+                    if (state.enabled && removals.isNotEmpty()) {
+                        // Additions apply now; removals go through the gate.
+                        viewModel.setBlockedPackages(current + additions)
+                        onGate(GateAction.RemoveApps(removals))
+                    } else {
+                        viewModel.setBlockedPackages(chosen)
+                        onDone()
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Save") }

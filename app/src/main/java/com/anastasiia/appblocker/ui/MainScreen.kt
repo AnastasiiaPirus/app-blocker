@@ -99,7 +99,12 @@ fun MainScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Blocking", style = MaterialTheme.typography.headlineSmall)
-                Switch(checked = state.enabled, onCheckedChange = { viewModel.setEnabled(it) })
+                Switch(
+                    checked = state.enabled,
+                    onCheckedChange = { checked ->
+                        if (checked) viewModel.setEnabled(true) else onGate(GateAction.Disable)
+                    },
+                )
             }
 
             gateState.pending?.let { pending ->
@@ -235,7 +240,10 @@ fun MainScreen(
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PAUSE_MINUTES.forEach { minutes ->
-                        Button(onClick = { viewModel.pauseFor(minutes) }) { Text("${minutes}m") }
+                        Button(onClick = {
+                            if (state.enabled) onGate(GateAction.Pause(minutes))
+                            else viewModel.pauseFor(minutes)
+                        }) { Text("${minutes}m") }
                     }
                 }
             }

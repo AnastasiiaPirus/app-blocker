@@ -31,17 +31,22 @@ class MainActivity : ComponentActivity() {
                 val viewModel: MainViewModel = viewModel()
                 var screen by remember { mutableStateOf(Screen.Main) }
                 var gateAction by remember { mutableStateOf<GateAction?>(null) }
+                val onGate: (GateAction) -> Unit = { action ->
+                    gateAction = action
+                    screen = Screen.Gate
+                }
                 when (screen) {
                     Screen.Main -> MainScreen(
                         viewModel,
                         onEditApps = { screen = Screen.EditApps },
-                        onGate = { action ->
-                            gateAction = action
-                            screen = Screen.Gate
-                        },
+                        onGate = onGate,
                         onConfirm = { screen = Screen.Confirm },
                     )
-                    Screen.EditApps -> EditAppsScreen(viewModel, onDone = { screen = Screen.Main })
+                    Screen.EditApps -> EditAppsScreen(
+                        viewModel,
+                        onDone = { screen = Screen.Main },
+                        onGate = onGate,
+                    )
                     Screen.Gate -> GateScreen(
                         viewModel,
                         action = gateAction ?: GateAction.Disable,
