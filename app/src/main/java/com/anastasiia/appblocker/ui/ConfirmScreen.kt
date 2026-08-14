@@ -21,7 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.anastasiia.appblocker.core.GateAction
+import com.anastasiia.appblocker.core.GatePhase
 import com.anastasiia.appblocker.core.formatClock
+import com.anastasiia.appblocker.core.gatePhase
 
 @Composable
 fun ConfirmScreen(viewModel: MainViewModel, onDone: () -> Unit) {
@@ -48,14 +50,19 @@ fun ConfirmScreen(viewModel: MainViewModel, onDone: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = {
-                    val action = pending.action
-                    viewModel.confirmPending()
-                    val message = if (action is GateAction.Pause) {
-                        "Done — resumes at ${formatClock(System.currentTimeMillis() + action.minutes * 60_000L)}."
+                    if (gatePhase(pending, System.currentTimeMillis()) == GatePhase.READY) {
+                        val action = pending.action
+                        viewModel.confirmPending()
+                        val message = if (action is GateAction.Pause) {
+                            "Done — resumes at ${formatClock(System.currentTimeMillis() + action.minutes * 60_000L)}."
+                        } else {
+                            "Done."
+                        }
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     } else {
-                        "Done."
+                        viewModel.lapseIfExpired()
+                        Toast.makeText(context, "Nice. That one passed.", Toast.LENGTH_SHORT).show()
                     }
-                    Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     onDone()
                 }) { Text("Yes") }
                 OutlinedButton(onClick = {
