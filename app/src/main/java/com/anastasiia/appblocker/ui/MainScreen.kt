@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.anastasiia.appblocker.core.BlockMode
 import com.anastasiia.appblocker.core.CONFIRM_WINDOW_MS
 import com.anastasiia.appblocker.core.GateAction
 import com.anastasiia.appblocker.core.GatePhase
@@ -179,7 +180,13 @@ fun MainScreen(
                     Switch(
                         checked = state.instagramMessagesOnly,
                         enabled = !instagramFullyBlocked,
-                        onCheckedChange = { viewModel.setInstagramMessagesOnly(it) },
+                        onCheckedChange = { checked ->
+                            if (!checked && state.enabled) {
+                                onGate(GateAction.ModeOff(BlockMode.INSTAGRAM_MESSAGES_ONLY))
+                            } else {
+                                viewModel.setInstagramMessagesOnly(checked)
+                            }
+                        },
                     )
                 }
             }
@@ -209,7 +216,13 @@ fun MainScreen(
                     Switch(
                         checked = state.youtubeNoShorts,
                         enabled = !youtubeFullyBlocked,
-                        onCheckedChange = { viewModel.setYoutubeNoShorts(it) },
+                        onCheckedChange = { checked ->
+                            if (!checked && state.enabled) {
+                                onGate(GateAction.ModeOff(BlockMode.YOUTUBE_NO_SHORTS))
+                            } else {
+                                viewModel.setYoutubeNoShorts(checked)
+                            }
+                        },
                     )
                 }
             }

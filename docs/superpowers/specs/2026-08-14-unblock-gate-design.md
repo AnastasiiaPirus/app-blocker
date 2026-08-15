@@ -36,14 +36,30 @@ blocking is active** (`enabled == true`):
 
 | Action                          | Wait after answer |
 |---------------------------------|-------------------|
-| Start a pause (any preset)      | 5 minutes         |
+| Start a 1-minute pause          | 1 minute          |
+| Start a 5-minute pause          | 2 minutes         |
+| Start a 15-minute pause         | 5 minutes         |
+| Start a 60-minute pause         | 10 minutes        |
 | Remove app(s) from blocked list | 5 minutes         |
+| Instagram messages-only → off   | 5 minutes         |
+| YouTube no-Shorts → off         | 5 minutes         |
 | Master toggle → off             | 30 minutes        |
 
+Pause waits scale with what's being unlocked (updated 2026-08-14 after
+review: a flat wait made every pause cost the same, so the rational move
+was always the longest pause — the gradient must reward asking for less).
+Non-preset durations fall back to the middle tier (5 minutes).
+
+The mode toggles (Instagram messages-only, YouTube no-Shorts) are gated
+because turning them off reduces enforcement; they are gated only while
+master blocking is active, matching the service's `guardApplies` which
+only enforces them when `enabled` and not paused (decision 2026-08-14).
+
 Never gated (blocking-ward or moot):
-- Toggle on, adding apps, "Resume now" while paused — instant.
-- Editing the app list while blocking is off (turning it off already
-  passed the gate).
+- Toggle on, adding apps, turning a mode on, "Resume now" while paused —
+  instant.
+- Editing the app list or turning a mode off while blocking is off
+  (turning blocking off already passed the gate).
 
 App-list edits: the edit screen saves a diff. Additions apply instantly;
 if the save removes any apps while blocking is active, the full removal
@@ -135,7 +151,7 @@ New DataStore keys (all in the existing preferences store):
 
 | Key                  | Type   | Meaning                                        |
 |----------------------|--------|------------------------------------------------|
-| `pendingType`        | String | `""` = none; `pause` / `disable` / `remove`    |
+| `pendingType`        | String | `""` = none; `pause` / `disable` / `remove` / `mode` |
 | `pendingParam`       | String | pause: minutes; remove: pkg names (separator-joined) |
 | `pendingQuestionIdx` | Int    | which question was asked                       |
 | `pendingAnswer`      | String | the typed answer                               |

@@ -17,8 +17,16 @@ class GateTest {
 
     @Test
     fun waitTimesMatchSpec() {
+        // Pause waits scale with what's being unlocked.
+        assertEquals(1 * 60_000L, waitMillisFor(GateAction.Pause(1)))
+        assertEquals(2 * 60_000L, waitMillisFor(GateAction.Pause(5)))
         assertEquals(5 * 60_000L, waitMillisFor(GateAction.Pause(15)))
+        assertEquals(10 * 60_000L, waitMillisFor(GateAction.Pause(60)))
+        // Non-preset durations fall back to the middle tier.
+        assertEquals(5 * 60_000L, waitMillisFor(GateAction.Pause(30)))
         assertEquals(5 * 60_000L, waitMillisFor(GateAction.RemoveApps(setOf("a"))))
+        assertEquals(5 * 60_000L, waitMillisFor(GateAction.ModeOff(BlockMode.INSTAGRAM_MESSAGES_ONLY)))
+        assertEquals(5 * 60_000L, waitMillisFor(GateAction.ModeOff(BlockMode.YOUTUBE_NO_SHORTS)))
         assertEquals(30 * 60_000L, waitMillisFor(GateAction.Disable))
     }
 
@@ -51,11 +59,14 @@ class GateTest {
             GateAction.Pause(15),
             GateAction.Disable,
             GateAction.RemoveApps(setOf("com.instagram.android", "com.zhiliaoapp.musically")),
+            GateAction.ModeOff(BlockMode.INSTAGRAM_MESSAGES_ONLY),
+            GateAction.ModeOff(BlockMode.YOUTUBE_NO_SHORTS),
         )
         for (action in actions) assertEquals(action, decodeAction(encodeAction(action)))
         assertNull(decodeAction(""))
         assertNull(decodeAction("pause:notanumber"))
         assertNull(decodeAction("garbage"))
+        assertNull(decodeAction("mode:garbage"))
     }
 
     @Test

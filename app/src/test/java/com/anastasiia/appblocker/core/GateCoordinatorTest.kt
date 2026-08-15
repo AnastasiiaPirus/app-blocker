@@ -106,6 +106,18 @@ class GateCoordinatorTest {
     }
 
     @Test
+    fun confirmModeOffDisablesThatModeOnly() = runGateTest { repo, _, gate ->
+        repo.setEnabled(true)
+        repo.setInstagramMessagesOnly(true)
+        repo.setYoutubeNoShorts(true)
+        gate.submit(GateAction.ModeOff(BlockMode.INSTAGRAM_MESSAGES_ONLY), answer, now = 0L)
+        gate.confirm(now = 5 * 60_000L)
+        assertEquals(false, repo.state.first().instagramMessagesOnly)
+        assertEquals(true, repo.state.first().youtubeNoShorts)
+        assertEquals(true, repo.state.first().enabled)
+    }
+
+    @Test
     fun lapseAfterConfirmWindowCountsAndClears() = runGateTest { repo, journal, gate ->
         gate.submit(GateAction.Pause(15), answer, now = 0L)
         val expired = 5 * 60_000L + CONFIRM_WINDOW_MS
