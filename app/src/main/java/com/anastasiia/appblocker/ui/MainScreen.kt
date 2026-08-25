@@ -2,6 +2,7 @@ package com.anastasiia.appblocker.ui
 
 import android.content.Intent
 import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,17 +35,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.anastasiia.appblocker.core.BlockMode
+import com.anastasiia.appblocker.core.CONFIRM_WINDOW_MS
+import com.anastasiia.appblocker.core.GateAction
+import com.anastasiia.appblocker.core.GatePhase
 import com.anastasiia.appblocker.core.INSTAGRAM_PACKAGE
 import com.anastasiia.appblocker.core.YOUTUBE_PACKAGE
+import com.anastasiia.appblocker.core.formatClock
 import com.anastasiia.appblocker.core.formatRemaining
+import com.anastasiia.appblocker.core.gatePhase
 import kotlinx.coroutines.delay
 
 private val PAUSE_MINUTES = listOf(1, 5, 15, 60)
 
 @Composable
-fun MainScreen(viewModel: MainViewModel, onEditApps: () -> Unit) {
+fun MainScreen(
+    viewModel: MainViewModel,
+    onEditApps: () -> Unit,
+    onGate: (GateAction) -> Unit = {},
+    onConfirm: () -> Unit = {},
+) {
     val context = LocalContext.current
     val state by viewModel.state.collectAsState()
+    val gateState by viewModel.gateState.collectAsState()
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var serviceEnabled by remember { mutableStateOf(isBlockerServiceEnabled(context)) }
     var advancedExpanded by remember { mutableStateOf(false) }
@@ -53,6 +66,7 @@ fun MainScreen(viewModel: MainViewModel, onEditApps: () -> Unit) {
         while (true) {
             now = System.currentTimeMillis()
             serviceEnabled = isBlockerServiceEnabled(context)
+            viewModel.lapseIfExpired()
             delay(1_000L)
         }
     }
@@ -87,7 +101,47 @@ fun MainScreen(viewModel: MainViewModel, onEditApps: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Blocking", style = MaterialTheme.typography.headlineSmall)
-                Switch(checked = state.enabled, onCheckedChange = { viewModel.setEnabled(it) })
+                Switch(
+                    checked = state.enabled,
+                    onCheckedChange = { checked ->
+                        if (checked) viewModel.setEnabled(true) else onGate(GateAction.Disable)
+                    },
+                )
+            }
+
+            gateState.pending?.let { pending ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    when (gatePhase(pending, now)) {
+                        GatePhase.WAITING -> {
+                            val pendingText = if (pending.action is GateAction.Pause) {
+                                "Pause ready at ${formatClock(pending.readyAt)}."
+                            } else {
+                                "Noted. Ready at ${formatClock(pending.readyAt)}."
+                            }
+                            Text(pendingText)
+                            TextButton(onClick = {
+                                viewModel.cancelPending()
+                                Toast.makeText(context, "Nice. That one passed.", Toast.LENGTH_SHORT).show()
+                            }) { Text("Cancel") }
+                        }
+                        GatePhase.READY -> {
+                            Text("Ready — confirm before ${formatClock(pending.readyAt + CONFIRM_WINDOW_MS)}")
+                            TextButton(onClick = onConfirm) { Text("Confirm") }
+                        }
+                        GatePhase.EXPIRED -> {} // cleared by the next lapse tick
+                    }
+                }
+            }
+            if (gateState.urgesOutlasted > 0) {
+                Text(
+                    "Urges outlasted: ${gateState.urgesOutlasted}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             if (state.isPaused(now)) {
@@ -126,7 +180,13 @@ fun MainScreen(viewModel: MainViewModel, onEditApps: () -> Unit) {
                     Switch(
                         checked = state.instagramMessagesOnly,
                         enabled = !instagramFullyBlocked,
-                        onCheckedChange = { viewModel.setInstagramMessagesOnly(it) },
+                        onCheckedChange = { checked ->
+                            if (!checked && state.enabled) {
+                                onGate(GateAction.ModeOff(BlockMode.INSTAGRAM_MESSAGES_ONLY))
+                            } else {
+                                viewModel.setInstagramMessagesOnly(checked)
+                            }
+                        },
                     )
                 }
             }
@@ -156,7 +216,13 @@ fun MainScreen(viewModel: MainViewModel, onEditApps: () -> Unit) {
                     Switch(
                         checked = state.youtubeNoShorts,
                         enabled = !youtubeFullyBlocked,
-                        onCheckedChange = { viewModel.setYoutubeNoShorts(it) },
+                        onCheckedChange = { checked ->
+                            if (!checked && state.enabled) {
+                                onGate(GateAction.ModeOff(BlockMode.YOUTUBE_NO_SHORTS))
+                            } else {
+                                viewModel.setYoutubeNoShorts(checked)
+                            }
+                        },
                     )
                 }
             }
@@ -196,7 +262,10 @@ fun MainScreen(viewModel: MainViewModel, onEditApps: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     PAUSE_MINUTES.forEach { minutes ->
-                        Button(onClick = { viewModel.pauseFor(minutes) }) { Text("${minutes}m") }
+                        Button(onClick = {
+                            if (state.enabled) onGate(GateAction.Pause(minutes))
+                            else viewModel.pauseFor(minutes)
+                        }) { Text("${minutes}m") }
                     }
                 }
             }

@@ -2,11 +2,10 @@
 
 **Date:** 2026-08-13
 **Status:** Approved for implementation planning
-**Owner:** Anastasiia (sole user, sole device)
 
 ## Purpose
 
-A minimalistic, free, personal Android app blocker for a Pixel 9. Select apps to
+A minimalistic, free, personal Android app blocker. Select apps to
 block; when blocking is on, opening a blocked app immediately shows a full-screen
 block screen and returns you to the home screen. Blocking can be paused for a
 chosen number of minutes (instant, auto-resumes) or disabled entirely.
@@ -117,9 +116,9 @@ against `pausedUntil` on every event.
 
 - Kotlin, Jetpack Compose, Material 3 (follows system dark mode).
 - Single Gradle module, no dependencies beyond AndroidX + Compose BOM.
-- `minSdk = 35` (Android 15; the app only ever runs on one Pixel 9),
-  `targetSdk` = latest stable.
-- Version control: git, local only.
+- `minSdk = 35` (Android 15; a personal project with no legacy devices to
+  support), `targetSdk` = latest stable.
+- Version control: git.
 
 ## Testing
 
@@ -134,8 +133,8 @@ against `pausedUntil` on every event.
 - Host: macOS. Install via Homebrew: Temurin JDK 17, Android command-line
   tools → `sdkmanager` for platform + build-tools + platform-tools (`adb`).
   No Android Studio required.
-- Device: Pixel 9 with Developer options + USB debugging enabled (one-time
-  manual step by the user; requires accepting the RSA fingerprint prompt).
+- Device: an Android 15+ phone with Developer options + USB debugging enabled
+  (one-time manual step; requires accepting the RSA fingerprint prompt).
 - Loop: `./gradlew installDebug` over USB; `adb` also used for smoke checks
   (launching apps, screenshots) during verification.
 

@@ -12,11 +12,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.anastasiia.appblocker.core.GateAction
+import com.anastasiia.appblocker.ui.ConfirmScreen
 import com.anastasiia.appblocker.ui.EditAppsScreen
+import com.anastasiia.appblocker.ui.GateScreen
 import com.anastasiia.appblocker.ui.MainScreen
 import com.anastasiia.appblocker.ui.MainViewModel
 
-private enum class Screen { Main, EditApps }
+private enum class Screen { Main, EditApps, Gate, Confirm }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,9 +30,37 @@ class MainActivity : ComponentActivity() {
             ) {
                 val viewModel: MainViewModel = viewModel()
                 var screen by remember { mutableStateOf(Screen.Main) }
+                var gateAction by remember { mutableStateOf<GateAction?>(null) }
+                val onGate: (GateAction) -> Unit = { action ->
+                    gateAction = action
+                    screen = Screen.Gate
+                }
                 when (screen) {
-                    Screen.Main -> MainScreen(viewModel, onEditApps = { screen = Screen.EditApps })
-                    Screen.EditApps -> EditAppsScreen(viewModel, onDone = { screen = Screen.Main })
+                    Screen.Main -> MainScreen(
+                        viewModel,
+                        onEditApps = { screen = Screen.EditApps },
+                        onGate = onGate,
+                        onConfirm = { screen = Screen.Confirm },
+                    )
+                    Screen.EditApps -> EditAppsScreen(
+                        viewModel,
+                        onDone = { screen = Screen.Main },
+                        onGate = onGate,
+                    )
+                    Screen.Gate -> {
+                        val action = gateAction
+                        if (action == null) {
+                            screen = Screen.Main
+                        } else {
+                            GateScreen(
+                                viewModel,
+                                action = action,
+                                onDone = { screen = Screen.Main },
+                                onBack = { screen = Screen.Main },
+                            )
+                        }
+                    }
+                    Screen.Confirm -> ConfirmScreen(viewModel, onDone = { screen = Screen.Main })
                 }
             }
         }

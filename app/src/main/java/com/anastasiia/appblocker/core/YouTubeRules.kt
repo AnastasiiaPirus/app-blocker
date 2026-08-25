@@ -8,7 +8,7 @@ enum class YouTubeAction { ALLOW, BACK }
 // the Shorts shelf in the home feed — shelf thumbnails are allowed, only
 // opening the player is bounced. Matched by suffix like the Instagram ids.
 //
-// Captured via uiautomator dump on the Pixel 9 (YouTube 2026-08); "reel_*" is
+// Captured via uiautomator dump on a real device (YouTube 2026-08); "reel_*" is
 // YouTube's internal name for Shorts. reel_time_bar is deliberately NOT here:
 // it stays visible on the home feed after leaving the player, so it would
 // false-block home.

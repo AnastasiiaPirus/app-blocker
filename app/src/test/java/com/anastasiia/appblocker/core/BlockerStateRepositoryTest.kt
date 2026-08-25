@@ -63,4 +63,31 @@ class BlockerStateRepositoryTest {
         )
         scope2.cancel()
     }
+
+    @Test
+    fun gateStateRoundTripsAndClears() = runTest {
+        val file = tmp.newFile("gate.preferences_pb").absolutePath.toPath()
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
+        val store = PreferenceDataStoreFactory.createWithPath(scope = scope) { file }
+        val repo = BlockerStateRepository(store)
+
+        assertEquals(GateState(), repo.gateState.first())
+
+        val request = PendingRequest(
+            action = GateAction.RemoveApps(setOf("com.instagram.android")),
+            questionIdx = 7,
+            answer = "I want to check something and I know it will not stop there.",
+            readyAt = 42_000L,
+        )
+        repo.setPending(request)
+        repo.setQuestionCursor(8)
+        repo.incrementUrgesOutlasted()
+        repo.incrementUrgesOutlasted()
+
+        assertEquals(GateState(pending = request, questionCursor = 8, urgesOutlasted = 2), repo.gateState.first())
+
+        repo.clearPending()
+        assertEquals(GateState(pending = null, questionCursor = 8, urgesOutlasted = 2), repo.gateState.first())
+        scope.cancel()
+    }
 }
