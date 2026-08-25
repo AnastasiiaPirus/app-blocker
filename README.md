@@ -62,9 +62,8 @@ content is read, and nothing ever leaves the device.
 
 ## Installing
 
-This is a sideload-only project — Play Store distribution would mean going
-through Google's approval process for non-accessibility uses of the
-accessibility API, and building it yourself is part of the deal anyway.
+There's no published APK — you clone the repo, build it, and install it over
+USB.
 
 1. Requirements: Android 15+ on the phone, JDK 17 and the Android SDK on your
    machine.
