@@ -2,7 +2,6 @@
 
 **Date:** 2026-08-14
 **Status:** Approved (design agreed in conversation; parameters confirmed)
-**Owner:** Anastasiia (sole user, sole device)
 **Supersedes:** the "pause friction" backlog item in the v1 spec.
 
 ## Purpose

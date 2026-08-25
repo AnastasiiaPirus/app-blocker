@@ -60,7 +60,7 @@ class InstagramRulesTest {
         )
 
     // --- Cold start: no tab reports selected; visibility decides ---
-    // Captured via uiautomator dump after force-stop + relaunch on the Pixel 9:
+    // Captured via uiautomator dump after force-stop + relaunch on a real device:
     // all five tabs present with selected="false", feed content on screen.
 
     @Test fun coldStartFeedNoSelectionButFeedVisibleRedirects() =

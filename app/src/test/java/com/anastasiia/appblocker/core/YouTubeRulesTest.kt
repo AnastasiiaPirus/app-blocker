@@ -14,7 +14,7 @@ class YouTubeRulesTest {
         "shorts_shelf", "shorts_lockup_image", "thumbnail",
     )
 
-    // Captured via uiautomator dump on the Pixel 9 (YouTube 2026-08) with the
+    // Captured via uiautomator dump on a real device (YouTube 2026-08) with the
     // Shorts player open.
     private val shortsPlayerTree = ids(
         "pivot_bar", "reel_recycler", "reel_player_page_container",
