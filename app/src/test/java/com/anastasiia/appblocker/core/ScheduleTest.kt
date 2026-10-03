@@ -138,4 +138,60 @@ class ScheduleTest {
         assertFalse(coverageReduced(coverageOf(always = false, windows = windows), coverageOf(always = true, windows = emptyList())))
         assertFalse(coverageReduced(fullCoverage(), fullCoverage()))
     }
+
+    @Test fun windowsJsonRoundTrips() {
+        val w = listOf(ScheduleWindow(weekdays, 480, 660), ScheduleWindow(setOf(6, 7), 21 * 60 + 30, 60))
+        assertEquals(w, decodeWindows(encodeWindows(w)))
+        assertEquals(emptyList<ScheduleWindow>(), decodeWindows(encodeWindows(emptyList())))
+    }
+
+    @Test fun schedulesJsonRoundTripsAndDropsEmptyEntries() {
+        val map = mapOf(
+            "com.facebook.katana" to listOf(ScheduleWindow(allDays, 480, 660)),
+            "com.google.android.youtube" to listOf(ScheduleWindow(allDays, 1290, 60), ScheduleWindow(weekdays, 720, 840)),
+            "com.example.empty" to emptyList(),
+        )
+        val decoded = decodeSchedules(encodeSchedules(map))
+        assertEquals(map - "com.example.empty", decoded)
+        assertEquals(emptyMap<String, List<ScheduleWindow>>(), decodeSchedules(encodeSchedules(emptyMap())))
+    }
+
+    @Test fun malformedJsonDecodesToEmpty() {
+        assertEquals(emptyMap<String, List<ScheduleWindow>>(), decodeSchedules(null))
+        assertEquals(emptyMap<String, List<ScheduleWindow>>(), decodeSchedules(""))
+        assertEquals(emptyMap<String, List<ScheduleWindow>>(), decodeSchedules("not json"))
+        assertEquals(emptyMap<String, List<ScheduleWindow>>(), decodeSchedules("[1,2,3]"))
+        assertEquals(emptyList<ScheduleWindow>(), decodeWindows("{\"oops\":1}"))
+        // A window with out-of-range fields is skipped, the rest survive.
+        val mixed = """[{"days":[1],"start":480,"end":660},{"days":[9],"start":480,"end":660},{"days":[2],"start":-5,"end":660},{"days":[3],"start":100,"end":2000}]"""
+        assertEquals(listOf(ScheduleWindow(setOf(1), 480, 660)), decodeWindows(mixed))
+    }
+
+    @Test fun formatsMinutesAndWindows() {
+        assertEquals("08:05", formatMinute(8 * 60 + 5))
+        assertEquals("00:00", formatMinute(0))
+        assertEquals("23:59", formatMinute(1439))
+        assertEquals("08:00–11:00 · daily", formatWindow(ScheduleWindow(allDays, 480, 660)))
+        assertEquals("08:00–11:00 · Mon–Fri", formatWindow(ScheduleWindow(weekdays, 480, 660)))
+        assertEquals("21:30–01:00 · Sat, Sun", formatWindow(ScheduleWindow(setOf(6, 7), 1290, 60)))
+        assertEquals("09:00–10:00 · Mon, Wed, Fri", formatWindow(ScheduleWindow(setOf(1, 3, 5), 540, 600)))
+        assertEquals(
+            "08:00–11:00 · daily, 21:30–01:00 · Sat, Sun",
+            describeWindows(listOf(ScheduleWindow(allDays, 480, 660), ScheduleWindow(setOf(6, 7), 1290, 60))),
+        )
+    }
+
+    @Test fun nextWindowStartSearchesForwardAcrossTheWeek() {
+        val w = listOf(ScheduleWindow(weekdays, 480, 660), ScheduleWindow(setOf(6), 1290, 60))
+        assertEquals(480, nextWindowStart(w, day = 1, minuteOfDay = 300))   // Mon 05:00 -> Mon 08:00
+        assertEquals(1290, nextWindowStart(w, day = 5, minuteOfDay = 700))  // Fri 11:40 -> Sat 21:30
+        assertEquals(480, nextWindowStart(w, day = 7, minuteOfDay = 120))   // Sun 02:00 -> Mon 08:00
+        assertEquals(null, nextWindowStart(emptyList(), day = 1, minuteOfDay = 0))
+        assertEquals(480, nextWindowStart(w, day = 1, minuteOfDay = 480))   // currently inside: its own start
+    }
+
+    @Test fun presetsMatchTheAnalysis() {
+        assertEquals(ScheduleWindow(allDays, 8 * 60, 11 * 60), MORNING_PRESET)
+        assertEquals(ScheduleWindow(allDays, 21 * 60 + 30, 60), NIGHT_PRESET)
+    }
 }
