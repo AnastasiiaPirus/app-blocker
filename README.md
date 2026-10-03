@@ -43,6 +43,10 @@ For the two apps where all-or-nothing doesn't work:
   Explore redirect to your inbox.
 - **YouTube, no Shorts** — everything works except the Shorts player.
 
+Both modes also watch the task preview: swiping up and holding (or parking the
+app in Overview) keeps it playing in its card while the launcher is in front,
+so a blocked surface seen there is covered and sent home.
+
 ## How it works
 
 An `AccessibilityService` is notified on every foreground-window change and
