@@ -12,9 +12,8 @@ app carry its own set of weekly time windows during which it is blocked, with
 the same block screen, the same pause, and the same Unblock Gate as a full
 block.
 
-The windows are the user's call. The usage analysis of 2026-10-02 suggests two
-starting points, offered as quick picks: **Morning 08:00–11:00** and **Night
-21:30–01:00**, every day.
+The windows are the user's call. Two common starting points are offered as
+quick picks: **Morning 08:00–11:00** and **Night 21:30–01:00**, every day.
 
 ## Guiding principles (unchanged)
 

@@ -170,12 +170,12 @@ class GateCoordinatorTest {
     @Test
     fun confirmSetScheduleWritesWindowsAndDropsAlways() = runGateTest { repo, _, gate ->
         repo.setEnabled(true)
-        repo.setBlockedPackages(setOf("com.facebook.katana", "com.sephora"))
+        repo.setBlockedPackages(setOf("com.facebook.katana", "com.example.shop"))
         val morning = ScheduleWindow(setOf(1, 2, 3, 4, 5, 6, 7), 480, 660)
         gate.submit(GateAction.SetSchedule("com.facebook.katana", listOf(morning)), answer, now = 0L)
         gate.confirm(now = 5 * 60_000L)
         val state = repo.state.first()
-        assertEquals(setOf("com.sephora"), state.blockedPackages)
+        assertEquals(setOf("com.example.shop"), state.blockedPackages)
         assertEquals(mapOf("com.facebook.katana" to listOf(morning)), state.schedules)
     }
 

@@ -755,12 +755,12 @@ In `GateCoordinatorTest`, add:
     @Test
     fun confirmSetScheduleWritesWindowsAndDropsAlways() = runGateTest { repo, _, gate ->
         repo.setEnabled(true)
-        repo.setBlockedPackages(setOf("com.facebook.katana", "com.sephora"))
+        repo.setBlockedPackages(setOf("com.facebook.katana", "com.example.shop"))
         val morning = ScheduleWindow(setOf(1, 2, 3, 4, 5, 6, 7), 480, 660)
         gate.submit(GateAction.SetSchedule("com.facebook.katana", listOf(morning)), answer, now = 0L)
         gate.confirm(now = 5 * 60_000L)
         val state = repo.state.first()
-        assertEquals(setOf("com.sephora"), state.blockedPackages)
+        assertEquals(setOf("com.example.shop"), state.blockedPackages)
         assertEquals(mapOf("com.facebook.katana" to listOf(morning)), state.schedules)
     }
 
@@ -1366,7 +1366,7 @@ In the `GatePhase.WAITING` branch, replace the `pendingText` expression with:
 Run: `./gradlew :app:testDebugUnitTest :app:installDebug 2>&1 | grep -E "^e: |BUILD|Installed"`
 Expected: BUILD SUCCESSFUL, installed.
 
-On the phone, with Facebook scheduled from Task 8 and the current time outside 08:00–11:00: the main list shows "Facebook" dimmed with `08:00–11:00 · daily · next: 08:00`; Temu/Shein/Sephora show "Always". Open Facebook: it opens (outside the window).
+On the phone, with Facebook scheduled from Task 8 and the current time outside 08:00–11:00: the main list shows "Facebook" dimmed with `08:00–11:00 · daily · next: 08:00`; the Always-blocked apps show "Always". Open Facebook: it opens (outside the window).
 
 Now the real end-to-end check. Note the phone's current time with `adb shell date`. In the editor, add a window for Facebook from two minutes from now to twenty minutes from now, today only (deselect the other days), Save (it only adds coverage, so it applies instantly). Wait for the minute to tick over, then open Facebook: the block overlay appears and the phone returns home. The main list now shows Facebook undimmed. Remove that test window afterwards (gated: answer, wait five minutes, confirm; "Schedule ready at …" shows on the main screen meanwhile, and Facebook stays blocked during the wait).
 
