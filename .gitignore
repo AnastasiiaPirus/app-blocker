@@ -6,3 +6,10 @@ local.properties
 .DS_Store
 *.iml
 .idea/
+
+# Personal usage data pulled from the phone (never commit)
+usage-data/
+*.usagestats*.txt
+journal*.jsonl
+usage-analysis*
+.playwright-mcp/
