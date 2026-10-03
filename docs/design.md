@@ -38,7 +38,8 @@ Motivation: commercial blockers put pause functionality behind a paywall.
 
 - **Domain blocking** (requires a local VPN service or Private DNS approach —
   a separate design when we get to it).
-- **Schedules** ("block this app from HH:MM to HH:MM").
+- **Schedules** — done 2026-10; see
+  [superpowers/specs/2026-10-02-per-app-schedules-design.md](superpowers/specs/2026-10-02-per-app-schedules-design.md).
 - **Pause friction** (countdown or typed phrase before a pause takes effect).
 
 ## Architecture

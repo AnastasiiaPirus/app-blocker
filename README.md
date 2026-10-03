@@ -8,6 +8,14 @@ Pick the apps to block, flip the toggle. Opening a blocked app shows a calm
 block screen and returns you to home. Pausing is free, instant, and
 auto-resumes. That's the whole app — plus two ideas that make it actually work.
 
+## Schedules
+
+An app can be blocked always, or only during windows you choose — say,
+08:00–11:00 every day and 21:30–01:00 on weeknights. Windows are wall-clock,
+may cross midnight, and go through the same pause and Unblock Gate as a full
+block: adding time is one tap, removing it costs the usual question, wait and
+confirmation.
+
 ## Friction, not fortress
 
 The app doesn't try to be tamper-proof; you can always uninstall it or revoke
