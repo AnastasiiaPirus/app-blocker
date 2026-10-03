@@ -18,6 +18,7 @@ class BlockerStateRepository(private val dataStore: DataStore<Preferences>) {
         val PAUSED_UNTIL = longPreferencesKey("paused_until")
         val INSTAGRAM_MESSAGES_ONLY = booleanPreferencesKey("instagram_messages_only")
         val YOUTUBE_NO_SHORTS = booleanPreferencesKey("youtube_no_shorts")
+        val SCHEDULES = stringPreferencesKey("schedules")
         val PENDING_ACTION = stringPreferencesKey("pending_action")
         val PENDING_QUESTION_IDX = intPreferencesKey("pending_question_idx")
         val PENDING_ANSWER = stringPreferencesKey("pending_answer")
@@ -33,6 +34,7 @@ class BlockerStateRepository(private val dataStore: DataStore<Preferences>) {
             pausedUntil = prefs[Keys.PAUSED_UNTIL] ?: 0L,
             instagramMessagesOnly = prefs[Keys.INSTAGRAM_MESSAGES_ONLY] ?: false,
             youtubeNoShorts = prefs[Keys.YOUTUBE_NO_SHORTS] ?: false,
+            schedules = decodeSchedules(prefs[Keys.SCHEDULES]),
         )
     }
 
@@ -44,6 +46,16 @@ class BlockerStateRepository(private val dataStore: DataStore<Preferences>) {
 
     suspend fun setYoutubeNoShorts(value: Boolean) =
         dataStore.edit { it[Keys.YOUTUBE_NO_SHORTS] = value }
+
+    suspend fun setSchedules(value: Map<String, List<ScheduleWindow>>) =
+        dataStore.edit { it[Keys.SCHEDULES] = encodeSchedules(value) }
+
+    /** Replaces one app's windows; an empty list removes the app from the schedules. */
+    suspend fun setSchedule(pkg: String, windows: List<ScheduleWindow>) = dataStore.edit { prefs ->
+        val current = decodeSchedules(prefs[Keys.SCHEDULES])
+        val updated = if (windows.isEmpty()) current - pkg else current + (pkg to windows)
+        prefs[Keys.SCHEDULES] = encodeSchedules(updated)
+    }
 
     val gateState: Flow<GateState> = dataStore.data.map { prefs ->
         val action = prefs[Keys.PENDING_ACTION]?.let(::decodeAction)
