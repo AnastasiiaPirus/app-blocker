@@ -8,14 +8,6 @@ Pick the apps to block, flip the toggle. Opening a blocked app shows a calm
 block screen and returns you to home. Pausing is free, instant, and
 auto-resumes. That's the whole app — plus two ideas that make it actually work.
 
-## Schedules
-
-An app can be blocked always, or only during windows you choose — say,
-08:00–11:00 every day and 21:30–01:00 on weeknights. Windows are wall-clock,
-may cross midnight, and go through the same pause and Unblock Gate as a full
-block: adding time is one tap, removing it costs the usual question, wait and
-confirmation.
-
 ## Friction, not fortress
 
 The app doesn't try to be tamper-proof; you can always uninstall it or revoke
@@ -26,7 +18,8 @@ enough.
 ## The Unblock Gate
 
 Every action that reduces blocking — pausing, removing an app from the list,
-turning a mode or the blocker off — goes through the same flow:
+shrinking a schedule, turning a mode or the blocker off — goes through the
+same flow:
 
 1. **Answer one reflective question.** Typed, at least 50 characters, paste
    disabled. One of ten rotating questions, e.g. *"What are you hoping to find
@@ -55,6 +48,14 @@ Both modes also watch the task preview: swiping up and holding (or parking the
 app in Overview) keeps it playing in its card while the launcher is in front,
 so a blocked surface seen there is covered and sent home.
 
+## Schedules
+
+An app can be blocked always, or only during windows you choose — say,
+08:00–11:00 every day and 21:30–01:00 on weeknights. Windows are wall-clock,
+may cross midnight, and go through the same pause and Unblock Gate as a full
+block: adding time is one tap, removing it costs the usual question, wait and
+confirmation.
+
 ## How it works
 
 An `AccessibilityService` is notified on every foreground-window change and
@@ -69,8 +70,9 @@ content is read, and nothing ever leaves the device.
   third-party dependencies beyond AndroidX.
 - All decision logic (blocking, gate lifecycle, screen classification) is pure
   and covered by JVM unit tests: `./gradlew :app:testDebugUnitTest`.
-- Design docs: [docs/design.md](docs/design.md) and
-  [docs/unblock-gate.md](docs/unblock-gate.md).
+- Design docs: [docs/design.md](docs/design.md),
+  [docs/unblock-gate.md](docs/unblock-gate.md) and
+  [the schedules spec](docs/superpowers/specs/2026-10-02-per-app-schedules-design.md).
 
 ## Installing
 
