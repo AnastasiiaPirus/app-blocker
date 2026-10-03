@@ -90,4 +90,35 @@ class BlockerStateRepositoryTest {
         assertEquals(GateState(pending = null, questionCursor = 8, urgesOutlasted = 2), repo.gateState.first())
         scope.cancel()
     }
+
+    @Test
+    fun schedulesRoundTripAndEmptyListRemovesTheApp() = runTest {
+        val file = tmp.newFile("sched.preferences_pb").absolutePath.toPath()
+        val scope = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
+        val store = PreferenceDataStoreFactory.createWithPath(scope = scope) { file }
+        val repo = BlockerStateRepository(store)
+
+        assertEquals(emptyMap<String, List<ScheduleWindow>>(), repo.state.first().schedules)
+
+        val morning = ScheduleWindow(setOf(1, 2, 3, 4, 5, 6, 7), 480, 660)
+        val night = ScheduleWindow(setOf(1, 2, 3, 4, 5), 1290, 60)
+        repo.setSchedule("com.facebook.katana", listOf(morning))
+        repo.setSchedule("com.google.android.youtube", listOf(morning, night))
+        assertEquals(
+            mapOf("com.facebook.katana" to listOf(morning), "com.google.android.youtube" to listOf(morning, night)),
+            repo.state.first().schedules,
+        )
+
+        repo.setSchedule("com.facebook.katana", emptyList())
+        assertEquals(mapOf("com.google.android.youtube" to listOf(morning, night)), repo.state.first().schedules)
+
+        repo.setSchedules(mapOf("com.whatsapp" to listOf(night)))
+        assertEquals(mapOf("com.whatsapp" to listOf(night)), repo.state.first().schedules)
+        scope.cancel()
+
+        val scope2 = CoroutineScope(UnconfinedTestDispatcher(testScheduler) + SupervisorJob())
+        val repo2 = BlockerStateRepository(PreferenceDataStoreFactory.createWithPath(scope = scope2) { file })
+        assertEquals(mapOf("com.whatsapp" to listOf(night)), repo2.state.first().schedules)
+        scope2.cancel()
+    }
 }

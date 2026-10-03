@@ -41,6 +41,7 @@ import com.anastasiia.appblocker.core.GateAction
 import com.anastasiia.appblocker.core.GatePhase
 import com.anastasiia.appblocker.core.INSTAGRAM_PACKAGE
 import com.anastasiia.appblocker.core.YOUTUBE_PACKAGE
+import com.anastasiia.appblocker.core.blockedEntries
 import com.anastasiia.appblocker.core.formatClock
 import com.anastasiia.appblocker.core.formatRemaining
 import com.anastasiia.appblocker.core.gatePhase
@@ -71,9 +72,16 @@ fun MainScreen(
         }
     }
 
-    val appLabels = remember(state.blockedPackages) {
-        val byPackage = launchableApps(context.packageManager).associateBy { it.packageName }
-        state.blockedPackages.map { pkg -> byPackage[pkg]?.label ?: pkg }.sorted()
+    // Labels come from one PackageManager query; the rows are rebuilt once a minute so
+    // "active now" and "next" follow the clock.
+    val labelByPackage = remember { launchableApps(context.packageManager).associate { it.packageName to it.label } }
+    val entries = remember(state.blockedPackages, state.schedules, now / 60_000L) {
+        blockedEntries(
+            blocked = state.blockedPackages,
+            schedules = state.schedules,
+            labelOf = { pkg -> labelByPackage[pkg] ?: pkg },
+            at = java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault()),
+        )
     }
 
     Scaffold { padding ->
@@ -117,10 +125,10 @@ fun MainScreen(
                 ) {
                     when (gatePhase(pending, now)) {
                         GatePhase.WAITING -> {
-                            val pendingText = if (pending.action is GateAction.Pause) {
-                                "Pause ready at ${formatClock(pending.readyAt)}."
-                            } else {
-                                "Noted. Ready at ${formatClock(pending.readyAt)}."
+                            val pendingText = when (pending.action) {
+                                is GateAction.Pause -> "Pause ready at ${formatClock(pending.readyAt)}."
+                                is GateAction.SetSchedule -> "Schedule ready at ${formatClock(pending.readyAt)}."
+                                else -> "Noted. Ready at ${formatClock(pending.readyAt)}."
                             }
                             Text(pendingText)
                             TextButton(onClick = {
@@ -239,7 +247,7 @@ fun MainScreen(
             }
 
             LazyColumn(Modifier.weight(1f)) {
-                if (appLabels.isEmpty()) {
+                if (entries.isEmpty()) {
                     item {
                         Text(
                             "No apps selected yet.",
@@ -248,8 +256,19 @@ fun MainScreen(
                         )
                     }
                 }
-                items(appLabels) { label ->
-                    Text(label, modifier = Modifier.padding(vertical = 8.dp))
+                items(entries, key = { it.pkg }) { entry ->
+                    Column(Modifier.padding(vertical = 8.dp)) {
+                        Text(
+                            entry.label,
+                            color = if (entry.activeNow) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            entry.subtitle,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
 

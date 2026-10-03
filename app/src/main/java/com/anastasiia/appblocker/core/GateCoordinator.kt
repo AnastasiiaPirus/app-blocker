@@ -67,6 +67,11 @@ class GateCoordinator(
                 BlockMode.INSTAGRAM_MESSAGES_ONLY -> repository.setInstagramMessagesOnly(false)
                 BlockMode.YOUTUBE_NO_SHORTS -> repository.setYoutubeNoShorts(false)
             }
+            is GateAction.SetSchedule -> {
+                repository.setSchedule(action.pkg, action.windows)
+                val current = repository.state.first().blockedPackages
+                if (action.pkg in current) repository.setBlockedPackages(current - action.pkg)
+            }
         }
     }
 

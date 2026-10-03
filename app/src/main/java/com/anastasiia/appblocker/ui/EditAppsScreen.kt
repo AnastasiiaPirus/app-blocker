@@ -10,9 +10,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -24,9 +26,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.anastasiia.appblocker.core.GateAction
+import com.anastasiia.appblocker.core.describeWindows
 
 @Composable
-fun EditAppsScreen(viewModel: MainViewModel, onDone: () -> Unit, onGate: (GateAction) -> Unit = {}) {
+fun EditAppsScreen(
+    viewModel: MainViewModel,
+    onDone: () -> Unit,
+    onGate: (GateAction) -> Unit = {},
+    onEditSchedule: (AppInfo) -> Unit = {},
+) {
     val context = LocalContext.current
     val apps = remember { launchableApps(context.packageManager) }
     val state = viewModel.state.collectAsState().value
@@ -47,12 +55,23 @@ fun EditAppsScreen(viewModel: MainViewModel, onDone: () -> Unit, onGate: (GateAc
             )
             LazyColumn(Modifier.weight(1f).padding(vertical = 8.dp)) {
                 items(visible, key = { it.packageName }) { app ->
+                    val windows = state.schedules[app.packageName].orEmpty()
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(app.label, modifier = Modifier.weight(1f))
+                        Column(Modifier.weight(1f)) {
+                            Text(app.label)
+                            if (windows.isNotEmpty() && app.packageName !in selected) {
+                                Text(
+                                    describeWindows(windows),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        TextButton(onClick = { onEditSchedule(app) }) { Text("Schedule") }
                         Checkbox(
                             checked = app.packageName in selected,
                             onCheckedChange = { checked ->
@@ -70,6 +89,10 @@ fun EditAppsScreen(viewModel: MainViewModel, onDone: () -> Unit, onGate: (GateAc
                     val chosen = selected intersect installed
                     val removals = current - chosen
                     val additions = chosen - current
+                    // Always wins: an app checked here loses its schedule. Schedules of
+                    // uninstalled apps are pruned like stale blocked packages.
+                    val keptSchedules = state.schedules.filterKeys { it in installed && it !in chosen }
+                    if (keptSchedules != state.schedules) viewModel.setSchedules(keptSchedules)
                     if (state.enabled && removals.isNotEmpty()) {
                         // Additions apply now; removals go through the gate.
                         viewModel.setBlockedPackages(current + additions)
