@@ -85,4 +85,57 @@ class ScheduleTest {
         assertFalse(isScheduledNow(listOf(morning), utcInstant))
         assertTrue(isScheduledNow(listOf(morning), utcInstant.withZoneSameInstant(ZoneId.of("America/Toronto"))))
     }
+
+    private val allDays = setOf(1, 2, 3, 4, 5, 6, 7)
+
+    @Test fun coverageMarksExactlyTheWindowMinutes() {
+        val c = coverage(listOf(ScheduleWindow(setOf(3), 600, 602)))
+        assertEquals(2, c.count { it })
+        assertTrue(c[(3 - 1) * MINUTES_PER_DAY + 600])
+        assertTrue(c[(3 - 1) * MINUTES_PER_DAY + 601])
+        assertFalse(c[(3 - 1) * MINUTES_PER_DAY + 602])
+    }
+
+    @Test fun coverageOfCrossingWindowSpillsIntoNextDay() {
+        val c = coverage(listOf(ScheduleWindow(setOf(7), 23 * 60, 60)))
+        assertTrue(c[(7 - 1) * MINUTES_PER_DAY + 23 * 60 + 30])
+        assertTrue(c[(1 - 1) * MINUTES_PER_DAY + 30])
+        assertFalse(c[(1 - 1) * MINUTES_PER_DAY + 60])
+        assertEquals(120, c.count { it })
+    }
+
+    @Test fun pureAdditionIsNotAReduction() {
+        val before = listOf(ScheduleWindow(weekdays, 480, 660))
+        val after = before + ScheduleWindow(allDays, 21 * 60 + 30, 60)
+        assertFalse(coverageReduced(coverage(before), coverage(after)))
+    }
+
+    @Test fun shrinkingAWindowIsAReduction() {
+        val before = listOf(ScheduleWindow(weekdays, 480, 660))
+        val after = listOf(ScheduleWindow(weekdays, 480, 600))
+        assertTrue(coverageReduced(coverage(before), coverage(after)))
+    }
+
+    @Test fun removingADayIsAReduction() {
+        val before = listOf(ScheduleWindow(weekdays, 480, 660))
+        val after = listOf(ScheduleWindow(setOf(1, 2, 3, 4), 480, 660))
+        assertTrue(coverageReduced(coverage(before), coverage(after)))
+    }
+
+    @Test fun deletingAllWindowsIsAReduction() {
+        assertTrue(coverageReduced(coverage(listOf(ScheduleWindow(weekdays, 480, 660))), coverage(emptyList())))
+    }
+
+    @Test fun identicalListsAreNotAReduction() {
+        val w = listOf(ScheduleWindow(weekdays, 480, 660), ScheduleWindow(allDays, 1290, 60))
+        assertFalse(coverageReduced(coverage(w), coverage(w)))
+        assertFalse(coverageReduced(coverage(w), coverage(w.reversed())))
+    }
+
+    @Test fun alwaysToScheduledIsAReductionAndBackIsNot() {
+        val windows = listOf(ScheduleWindow(allDays, 480, 660))
+        assertTrue(coverageReduced(coverageOf(always = true, windows = emptyList()), coverageOf(always = false, windows = windows)))
+        assertFalse(coverageReduced(coverageOf(always = false, windows = windows), coverageOf(always = true, windows = emptyList())))
+        assertFalse(coverageReduced(fullCoverage(), fullCoverage()))
+    }
 }

@@ -37,3 +37,37 @@ fun isScheduledNow(windows: List<ScheduleWindow>, at: ZonedDateTime): Boolean {
     val minute = at.hour * 60 + at.minute
     return windows.any { windowContains(it, day, minute) }
 }
+
+/**
+ * One boolean per (weekday, minute) of the week, true where any window
+ * blocks. Index is `(day - 1) * MINUTES_PER_DAY + minute`. Used to decide
+ * whether an edit removes blocking somewhere (gated) or only adds it.
+ */
+fun coverage(windows: List<ScheduleWindow>): BooleanArray {
+    val grid = BooleanArray(7 * MINUTES_PER_DAY)
+    for (w in windows) {
+        if (w.isEmpty) continue
+        for (day in w.days) {
+            if (!w.crossesMidnight) {
+                for (m in w.startMinute until w.endMinute) grid[(day - 1) * MINUTES_PER_DAY + m] = true
+            } else {
+                for (m in w.startMinute until MINUTES_PER_DAY) grid[(day - 1) * MINUTES_PER_DAY + m] = true
+                val next = nextDay(day)
+                for (m in 0 until w.endMinute) grid[(next - 1) * MINUTES_PER_DAY + m] = true
+            }
+        }
+    }
+    return grid
+}
+
+fun fullCoverage(): BooleanArray = BooleanArray(7 * MINUTES_PER_DAY) { true }
+
+/** Coverage of an app's blocking configuration: Always covers the whole week. */
+fun coverageOf(always: Boolean, windows: List<ScheduleWindow>): BooleanArray =
+    if (always) fullCoverage() else coverage(windows)
+
+/** True when some minute was blocked [before] and is not blocked [after]. */
+fun coverageReduced(before: BooleanArray, after: BooleanArray): Boolean {
+    for (i in before.indices) if (before[i] && !after[i]) return true
+    return false
+}
