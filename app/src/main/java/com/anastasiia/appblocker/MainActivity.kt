@@ -13,13 +13,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.anastasiia.appblocker.core.GateAction
+import com.anastasiia.appblocker.ui.AppInfo
 import com.anastasiia.appblocker.ui.ConfirmScreen
 import com.anastasiia.appblocker.ui.EditAppsScreen
 import com.anastasiia.appblocker.ui.GateScreen
 import com.anastasiia.appblocker.ui.MainScreen
 import com.anastasiia.appblocker.ui.MainViewModel
+import com.anastasiia.appblocker.ui.ScheduleEditorScreen
 
-private enum class Screen { Main, EditApps, Gate, Confirm }
+private enum class Screen { Main, EditApps, ScheduleEditor, Gate, Confirm }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -31,6 +33,7 @@ class MainActivity : ComponentActivity() {
                 val viewModel: MainViewModel = viewModel()
                 var screen by remember { mutableStateOf(Screen.Main) }
                 var gateAction by remember { mutableStateOf<GateAction?>(null) }
+                var scheduleApp by remember { mutableStateOf<AppInfo?>(null) }
                 val onGate: (GateAction) -> Unit = { action ->
                     gateAction = action
                     screen = Screen.Gate
@@ -46,7 +49,25 @@ class MainActivity : ComponentActivity() {
                         viewModel,
                         onDone = { screen = Screen.Main },
                         onGate = onGate,
+                        onEditSchedule = { app ->
+                            scheduleApp = app
+                            screen = Screen.ScheduleEditor
+                        },
                     )
+                    Screen.ScheduleEditor -> {
+                        val app = scheduleApp
+                        if (app == null) {
+                            screen = Screen.EditApps
+                        } else {
+                            ScheduleEditorScreen(
+                                viewModel,
+                                pkg = app.packageName,
+                                label = app.label,
+                                onDone = { screen = Screen.EditApps },
+                                onGate = onGate,
+                            )
+                        }
+                    }
                     Screen.Gate -> {
                         val action = gateAction
                         if (action == null) {

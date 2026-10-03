@@ -26,7 +26,12 @@ import androidx.compose.ui.unit.dp
 import com.anastasiia.appblocker.core.GateAction
 
 @Composable
-fun EditAppsScreen(viewModel: MainViewModel, onDone: () -> Unit, onGate: (GateAction) -> Unit = {}) {
+fun EditAppsScreen(
+    viewModel: MainViewModel,
+    onDone: () -> Unit,
+    onGate: (GateAction) -> Unit = {},
+    onEditSchedule: (AppInfo) -> Unit = {},
+) {
     val context = LocalContext.current
     val apps = remember { launchableApps(context.packageManager) }
     val state = viewModel.state.collectAsState().value

@@ -167,3 +167,15 @@ fun nextWindowStart(windows: List<ScheduleWindow>, day: Int, minuteOfDay: Int): 
     }
     return null
 }
+
+/**
+ * Whether saving [after] in place of [before] must go through the Unblock
+ * Gate: only while blocking is on, and only if some minute of the week stops
+ * being blocked. An app that was Always blocked counts as fully covered.
+ */
+fun scheduleSaveNeedsGate(
+    enabled: Boolean,
+    wasAlways: Boolean,
+    before: List<ScheduleWindow>,
+    after: List<ScheduleWindow>,
+): Boolean = enabled && coverageReduced(coverageOf(wasAlways, before), coverageOf(always = false, windows = after))

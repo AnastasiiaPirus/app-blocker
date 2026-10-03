@@ -194,4 +194,16 @@ class ScheduleTest {
         assertEquals(ScheduleWindow(allDays, 8 * 60, 11 * 60), MORNING_PRESET)
         assertEquals(ScheduleWindow(allDays, 21 * 60 + 30, 60), NIGHT_PRESET)
     }
+
+    @Test fun scheduleSaveNeedsGateOnlyForReductionsWhileEnabled() {
+        val morning = listOf(ScheduleWindow(allDays, 480, 660))
+        val shorter = listOf(ScheduleWindow(allDays, 480, 600))
+        assertTrue(scheduleSaveNeedsGate(enabled = true, wasAlways = false, before = morning, after = shorter))
+        assertTrue(scheduleSaveNeedsGate(enabled = true, wasAlways = false, before = morning, after = emptyList()))
+        assertTrue(scheduleSaveNeedsGate(enabled = true, wasAlways = true, before = emptyList(), after = morning))
+        assertFalse(scheduleSaveNeedsGate(enabled = true, wasAlways = false, before = emptyList(), after = morning))
+        assertFalse(scheduleSaveNeedsGate(enabled = true, wasAlways = false, before = shorter, after = morning))
+        assertFalse(scheduleSaveNeedsGate(enabled = false, wasAlways = false, before = morning, after = emptyList()))
+        assertFalse(scheduleSaveNeedsGate(enabled = true, wasAlways = false, before = morning, after = morning))
+    }
 }

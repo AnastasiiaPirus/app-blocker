@@ -10,6 +10,7 @@ import com.anastasiia.appblocker.core.GateCoordinator
 import com.anastasiia.appblocker.core.GateState
 import com.anastasiia.appblocker.core.Journal
 import com.anastasiia.appblocker.core.JournalEntry
+import com.anastasiia.appblocker.core.ScheduleWindow
 import com.anastasiia.appblocker.core.blockerDataStore
 import java.io.File
 import kotlinx.coroutines.Dispatchers
@@ -60,4 +61,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setYoutubeNoShorts(value: Boolean) =
         viewModelScope.launch { repository.setYoutubeNoShorts(value) }
+
+    /** Instant (blocking-ward) schedule save: write the windows and drop the app from the Always list. */
+    fun setSchedule(pkg: String, windows: List<ScheduleWindow>) = viewModelScope.launch {
+        repository.setSchedule(pkg, windows)
+        val current = state.value.blockedPackages
+        if (pkg in current) repository.setBlockedPackages(current - pkg)
+    }
 }
