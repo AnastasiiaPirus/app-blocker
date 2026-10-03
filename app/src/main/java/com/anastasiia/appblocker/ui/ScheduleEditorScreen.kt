@@ -74,9 +74,13 @@ fun ScheduleEditorScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { windows = windows + MORNING_PRESET }) { Text("Morning 08:00–11:00") }
-                OutlinedButton(onClick = { windows = windows + NIGHT_PRESET }) { Text("Night 21:30–01:00") }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = { windows = windows + MORNING_PRESET }, modifier = Modifier.weight(1f)) {
+                    Text("Morning 08–11", maxLines = 1)
+                }
+                OutlinedButton(onClick = { windows = windows + NIGHT_PRESET }, modifier = Modifier.weight(1f)) {
+                    Text("Night 21:30–01", maxLines = 1)
+                }
             }
             Spacer(Modifier.height(8.dp))
             LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -147,7 +151,8 @@ private fun WindowCard(
 ) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            // Seven chips must share the card width on narrow phones, so each takes an equal slice.
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 for (day in 1..7) {
                     FilterChip(
                         selected = day in window.days,
@@ -155,7 +160,8 @@ private fun WindowCard(
                             val days = if (day in window.days) window.days - day else window.days + day
                             onChange(window.copy(days = days))
                         },
-                        label = { Text(DAY_LETTERS[day - 1]) },
+                        label = { Text(DAY_LETTERS[day - 1], maxLines = 1) },
+                        modifier = Modifier.weight(1f),
                     )
                 }
             }

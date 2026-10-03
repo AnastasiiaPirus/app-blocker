@@ -41,18 +41,13 @@ import com.anastasiia.appblocker.core.GateAction
 import com.anastasiia.appblocker.core.GatePhase
 import com.anastasiia.appblocker.core.INSTAGRAM_PACKAGE
 import com.anastasiia.appblocker.core.YOUTUBE_PACKAGE
-import com.anastasiia.appblocker.core.describeWindows
-import com.anastasiia.appblocker.core.formatMinute
-import com.anastasiia.appblocker.core.isScheduledNow
-import com.anastasiia.appblocker.core.nextWindowStart
+import com.anastasiia.appblocker.core.blockedEntries
 import com.anastasiia.appblocker.core.formatClock
 import com.anastasiia.appblocker.core.formatRemaining
 import com.anastasiia.appblocker.core.gatePhase
 import kotlinx.coroutines.delay
 
 private val PAUSE_MINUTES = listOf(1, 5, 15, 60)
-
-private data class BlockedEntry(val label: String, val subtitle: String, val activeNow: Boolean)
 
 @Composable
 fun MainScreen(
@@ -77,24 +72,16 @@ fun MainScreen(
         }
     }
 
+    // Labels come from one PackageManager query; the rows are rebuilt once a minute so
+    // "active now" and "next" follow the clock.
+    val labelByPackage = remember { launchableApps(context.packageManager).associate { it.packageName to it.label } }
     val entries = remember(state.blockedPackages, state.schedules, now / 60_000L) {
-        val byPackage = launchableApps(context.packageManager).associateBy { it.packageName }
-        val at = java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault())
-        val day = at.dayOfWeek.value
-        val minute = at.hour * 60 + at.minute
-        val always = state.blockedPackages.map { pkg ->
-            BlockedEntry(byPackage[pkg]?.label ?: pkg, subtitle = "Always", activeNow = true)
-        }
-        val scheduled = state.schedules.filterKeys { it !in state.blockedPackages }.map { (pkg, windows) ->
-            val active = isScheduledNow(windows, at)
-            val next = nextWindowStart(windows, day, minute)
-            BlockedEntry(
-                label = byPackage[pkg]?.label ?: pkg,
-                subtitle = describeWindows(windows) + if (!active && next != null) " · next: ${formatMinute(next)}" else "",
-                activeNow = active,
-            )
-        }
-        (always + scheduled).sortedBy { it.label.lowercase() }
+        blockedEntries(
+            blocked = state.blockedPackages,
+            schedules = state.schedules,
+            labelOf = { pkg -> labelByPackage[pkg] ?: pkg },
+            at = java.time.Instant.ofEpochMilli(now).atZone(java.time.ZoneId.systemDefault()),
+        )
     }
 
     Scaffold { padding ->
@@ -269,7 +256,7 @@ fun MainScreen(
                         )
                     }
                 }
-                items(entries, key = { it.label + it.subtitle }) { entry ->
+                items(entries, key = { it.pkg }) { entry ->
                     Column(Modifier.padding(vertical = 8.dp)) {
                         Text(
                             entry.label,
