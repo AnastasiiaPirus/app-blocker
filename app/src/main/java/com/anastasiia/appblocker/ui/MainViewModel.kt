@@ -62,6 +62,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setYoutubeNoShorts(value: Boolean) =
         viewModelScope.launch { repository.setYoutubeNoShorts(value) }
 
+    fun setSchedules(value: Map<String, List<ScheduleWindow>>) =
+        viewModelScope.launch { repository.setSchedules(value) }
+
     /** Instant (blocking-ward) schedule save: write the windows and drop the app from the Always list. */
     fun setSchedule(pkg: String, windows: List<ScheduleWindow>) = viewModelScope.launch {
         repository.setSchedule(pkg, windows)
