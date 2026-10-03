@@ -10,6 +10,8 @@ sealed interface GateAction {
     data object Disable : GateAction
     data class RemoveApps(val packages: Set<String>) : GateAction
     data class ModeOff(val mode: BlockMode) : GateAction
+    /** Replace [pkg]'s windows (empty = Never) and drop it from the Always list. Gated only when coverage shrinks. */
+    data class SetSchedule(val pkg: String, val windows: List<ScheduleWindow>) : GateAction
 }
 
 const val GATE_MIN_ANSWER_CHARS = 50
@@ -17,6 +19,7 @@ const val CONFIRM_WINDOW_MS = 30 * 60_000L
 private const val REMOVE_WAIT_MS = 5 * 60_000L
 private const val MODE_OFF_WAIT_MS = 5 * 60_000L
 private const val DISABLE_WAIT_MS = 30 * 60_000L
+private const val SCHEDULE_WAIT_MS = 5 * 60_000L
 
 // The wait scales with how much scrolling the pause unlocks, so asking for
 // less is always the cheaper move.
@@ -45,6 +48,7 @@ fun waitMillisFor(action: GateAction): Long = when (action) {
     is GateAction.Pause -> pauseWaitMs(action.minutes)
     is GateAction.RemoveApps -> REMOVE_WAIT_MS
     is GateAction.ModeOff -> MODE_OFF_WAIT_MS
+    is GateAction.SetSchedule -> SCHEDULE_WAIT_MS
     GateAction.Disable -> DISABLE_WAIT_MS
 }
 
@@ -70,6 +74,7 @@ fun encodeAction(action: GateAction): String = when (action) {
     GateAction.Disable -> "disable"
     is GateAction.RemoveApps -> "remove:${action.packages.sorted().joinToString(",")}"
     is GateAction.ModeOff -> "mode:${action.mode.name}"
+    is GateAction.SetSchedule -> "schedule:${action.pkg}:${encodeWindows(action.windows)}"
 }
 
 fun decodeAction(s: String): GateAction? = when {
@@ -82,6 +87,12 @@ fun decodeAction(s: String): GateAction? = when {
     s.startsWith("mode:") ->
         runCatching { BlockMode.valueOf(s.removePrefix("mode:")) }.getOrNull()
             ?.let { GateAction.ModeOff(it) }
+    s.startsWith("schedule:") -> {
+        val rest = s.removePrefix("schedule:")
+        val pkg = rest.substringBefore(':', missingDelimiterValue = "")
+        if (pkg.isEmpty() || !rest.contains(':')) null
+        else GateAction.SetSchedule(pkg, decodeWindows(rest.substringAfter(':')))
+    }
     else -> null
 }
 

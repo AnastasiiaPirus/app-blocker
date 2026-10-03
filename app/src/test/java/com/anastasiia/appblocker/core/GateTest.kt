@@ -27,6 +27,7 @@ class GateTest {
         assertEquals(5 * 60_000L, waitMillisFor(GateAction.RemoveApps(setOf("a"))))
         assertEquals(5 * 60_000L, waitMillisFor(GateAction.ModeOff(BlockMode.INSTAGRAM_MESSAGES_ONLY)))
         assertEquals(5 * 60_000L, waitMillisFor(GateAction.ModeOff(BlockMode.YOUTUBE_NO_SHORTS)))
+        assertEquals(5 * 60_000L, waitMillisFor(GateAction.SetSchedule("com.facebook.katana", emptyList())))
         assertEquals(30 * 60_000L, waitMillisFor(GateAction.Disable))
     }
 
@@ -61,12 +62,20 @@ class GateTest {
             GateAction.RemoveApps(setOf("com.instagram.android", "com.zhiliaoapp.musically")),
             GateAction.ModeOff(BlockMode.INSTAGRAM_MESSAGES_ONLY),
             GateAction.ModeOff(BlockMode.YOUTUBE_NO_SHORTS),
+            GateAction.SetSchedule("com.facebook.katana", listOf(ScheduleWindow(setOf(1, 2, 3, 4, 5, 6, 7), 480, 660))),
+            GateAction.SetSchedule("com.google.android.youtube", emptyList()),
         )
         for (action in actions) assertEquals(action, decodeAction(encodeAction(action)))
         assertNull(decodeAction(""))
         assertNull(decodeAction("pause:notanumber"))
         assertNull(decodeAction("garbage"))
         assertNull(decodeAction("mode:garbage"))
+        assertNull(decodeAction("schedule:"))
+        assertNull(decodeAction("schedule:com.facebook.katana"))
+        assertEquals(
+            GateAction.SetSchedule("com.facebook.katana", emptyList()),
+            decodeAction("schedule:com.facebook.katana:not json"),
+        ) // unreadable windows degrade to "Never", which is the stricter-to-undo but safe reading
     }
 
     @Test

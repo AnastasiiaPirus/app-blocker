@@ -166,4 +166,35 @@ class GateCoordinatorTest {
         }
         assertEquals(0, repo.gateState.first().questionCursor)
     }
+
+    @Test
+    fun confirmSetScheduleWritesWindowsAndDropsAlways() = runGateTest { repo, _, gate ->
+        repo.setEnabled(true)
+        repo.setBlockedPackages(setOf("com.facebook.katana", "com.sephora"))
+        val morning = ScheduleWindow(setOf(1, 2, 3, 4, 5, 6, 7), 480, 660)
+        gate.submit(GateAction.SetSchedule("com.facebook.katana", listOf(morning)), answer, now = 0L)
+        gate.confirm(now = 5 * 60_000L)
+        val state = repo.state.first()
+        assertEquals(setOf("com.sephora"), state.blockedPackages)
+        assertEquals(mapOf("com.facebook.katana" to listOf(morning)), state.schedules)
+    }
+
+    @Test
+    fun confirmSetScheduleWithNoWindowsRemovesTheSchedule() = runGateTest { repo, _, gate ->
+        repo.setEnabled(true)
+        repo.setSchedule("com.facebook.katana", listOf(ScheduleWindow(setOf(1), 480, 660)))
+        gate.submit(GateAction.SetSchedule("com.facebook.katana", emptyList()), answer, now = 0L)
+        gate.confirm(now = 5 * 60_000L)
+        assertEquals(emptyMap<String, List<ScheduleWindow>>(), repo.state.first().schedules)
+    }
+
+    @Test
+    fun setSchedulePendingRoundTripsThroughTheStore() = runGateTest { repo, _, gate ->
+        val night = ScheduleWindow(setOf(6, 7), 1290, 60)
+        gate.submit(GateAction.SetSchedule("com.google.android.youtube", listOf(night)), answer, now = 0L)
+        assertEquals(
+            GateAction.SetSchedule("com.google.android.youtube", listOf(night)),
+            repo.gateState.first().pending?.action,
+        )
+    }
 }
